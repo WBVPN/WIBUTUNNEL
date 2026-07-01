@@ -280,17 +280,39 @@ backup_vps() {
     local target_id="${SENDER_ID:-$CHAT_ID}"
     send_msg "⏳ <b>Sedang merakit file backup...</b>"
     
-    local backup_file="/tmp/Backup-Wibutunnel-$(date +%Y-%m-%d).tar.gz"
+    local backup_file="/tmp/Backup_Wibutunnel_$(date +%Y-%m-%d_%H-%M).zip"
     rm -f "$backup_file"
-    tar -czf "$backup_file" /etc/xray /etc/wibutunnel /usr/local/etc/xray >/dev/null 2>&1
+    
+    cd /
+    zip -q -P "$CHAT_ID" -r "$backup_file" \
+        usr/local/etc/xray/config.json \
+        etc/xray/vless_exp.conf \
+        etc/xray/vmess_exp.conf \
+        etc/xray/trojan_exp.conf \
+        etc/wibutunnel/limit_ip.db \
+        etc/wibutunnel/limit_bw.db \
+        etc/wibutunnel/locked_users.db \
+        etc/wibutunnel/user_usage.db \
+        etc/xray/domain 2>/dev/null
     
     if [[ -f "$backup_file" ]]; then
-        local caption=$(echo -e "📦 <b>Backup Wibutunnel VPS</b>\n🗓 Tanggal: <code>$(date +%Y-%m-%d %H:%M:%S)</code>\n\n<i>Simpan file ini baik-baik. File tar.gz bisa diekstrak di VPS baru.</i>")
-        curl -s --max-time 60 -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendDocument" \
+        local caption=$(echo -e "📦 <b>Backup Wibutunnel VPS</b>\n🗓 Tanggal: <code>$(date +%Y-%m-%d %H:%M:%S)</code>\n\n<i>File dienkripsi menggunakan CHAT ID Anda.</i>")
+        local response=$(curl -s --max-time 60 -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendDocument" \
             -F "chat_id=${target_id}" \
             -F "document=@${backup_file}" \
             -F "caption=${caption}" \
-            -F "parse_mode=html" >/dev/null 2>&1
+            -F "parse_mode=html")
+            
+        local file_id=$(echo "$response" | jq -r '.result.document.file_id // empty')
+        
+        if [[ -n "$file_id" ]]; then
+            local restore_msg=$(echo -e "🔑 <b>DATA RESTORE:</b>\n\n<code>${file_id}</code>\n\n🔐 <b>Password:</b> CHAT ID Anda")
+            curl -s --max-time 15 -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
+                -F "chat_id=${target_id}" \
+                -F "parse_mode=html" \
+                -F "text=${restore_msg}" >/dev/null 2>&1
+        fi
+        
         rm -f "$backup_file"
     else
         send_msg "❌ <b>Gagal membuat backup!</b>"
