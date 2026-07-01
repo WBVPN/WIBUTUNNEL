@@ -149,15 +149,39 @@ case $sub_setting in
         ;;
     6)
         clear; echo -e "$LINE"; echo -e "         ${WHITE}SETUP BOT TELEGRAM${NC}"; echo -e "$LINE"
-        read -p "Masukkan BOT TOKEN : " input_token
-        read -p "Masukkan CHAT ID   : " input_chatid
-        if [[ -n "$input_token" && -n "$input_chatid" ]]; then
-            cat > /etc/wibutunnel/bot.conf << EOF
-BOT_TOKEN="${input_token}"
-CHAT_ID="${input_chatid}"
-EOF
-            echo -e "${GREEN}Bot berhasil disimpan!${NC}"
-        fi
+        bot_status=$(systemctl is-active wibutunnel-bot 2>/dev/null)
+        [[ "$bot_status" == "active" ]] && text_sts="${GREEN}Aktif & Berjalan${NC}" || text_sts="${RED}Mati (Stopped)${NC}"
+        echo -e " Status Daemon Bot : $text_sts\n"
+        echo -e " [1] Ganti BOT TOKEN & CHAT ID"
+        echo -e " [2] Hidupkan (Start) Bot"
+        echo -e " [3] Matikan (Stop) Bot"
+        echo -e " [0] Kembali"
+        echo -e "$LINE"
+        read -p " Pilih opsi [0-3]: " sub_bot
+        case $sub_bot in
+            1)
+                read -p "Masukkan BOT TOKEN : " input_token
+                read -p "Masukkan CHAT ID   : " input_chatid
+                if [[ -n "$input_token" && -n "$input_chatid" ]]; then
+                    echo "BOT_TOKEN=\"${input_token}\"" > /etc/wibutunnel/bot.conf
+                    echo "CHAT_ID=\"${input_chatid}\"" >> /etc/wibutunnel/bot.conf
+                    systemctl restart wibutunnel-bot 2>/dev/null
+                    echo -e "${GREEN}Bot berhasil disimpan & direstart!${NC}"
+                fi
+                ;;
+            2)
+                systemctl enable wibutunnel-bot >/dev/null 2>&1
+                systemctl start wibutunnel-bot >/dev/null 2>&1
+                echo -e "${GREEN}Bot Telegram berhasil dihidupkan!${NC}"
+                ;;
+            3)
+                systemctl stop wibutunnel-bot >/dev/null 2>&1
+                systemctl disable wibutunnel-bot >/dev/null 2>&1
+                echo -e "${YELLOW}Bot Telegram telah dimatikan!${NC}"
+                ;;
+            0) exec m-setting ;;
+            *) echo -e "${RED}Pilihan salah!${NC}" ;;
+        esac
         read -n 1 -s -r -p "Tekan tombol apa saja..."
         exec m-setting
         ;;

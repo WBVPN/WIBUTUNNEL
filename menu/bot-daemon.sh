@@ -126,7 +126,15 @@ while true; do
                     
                     case "$CMD" in
                         /start|/menu|/help)
-                            MSG="🤖 <b>WIBUTUNNEL PANEL BOT</b>\n\n<b>Commands:</b>\n<code>/vless [user] [hari]</code> - Create VLESS\n<code>/vmess [user] [hari]</code> - Create VMESS\n<code>/trojan [user] [hari]</code> - Create TROJAN\n<code>/hapus [user]</code> - Hapus Akun\n<code>/info</code> - Info VPS"
+                            MSG="━━━━━━━━━━━━━━━━━━━━\n 🤖 <b>WIBUTUNNEL PANEL BOT</b>\n━━━━━━━━━━━━━━━━━━━━\n\n"
+                            MSG+="✨ <b>Menu Create Account</b>\n"
+                            MSG+="├ <code>/vless [user] [hari]</code>\n"
+                            MSG+="├ <code>/vmess [user] [hari]</code>\n"
+                            MSG+="└ <code>/trojan [user] [hari]</code>\n\n"
+                            MSG+="⚙️ <b>Menu Management</b>\n"
+                            MSG+="├ <code>/hapus [user]</code>\n"
+                            MSG+="└ <code>/info</code> (Cek status VPS)\n\n"
+                            MSG+="━━━━━━━━━━━━━━━━━━━━"
                             send_msg "$MSG"
                             ;;
                         /vless)
