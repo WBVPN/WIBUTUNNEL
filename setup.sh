@@ -186,6 +186,12 @@ if ! grep -q "tmpfs /tmp" /etc/fstab; then
     mount -o remount /tmp
 fi
 
+if ! grep -q "tmpfs /var/log/xray" /etc/fstab; then
+    echo "tmpfs /var/log/xray tmpfs defaults,nosuid,nodev,noexec,mode=0755,size=30M 0 0" >> /etc/fstab
+    mkdir -p /var/log/xray
+    mount /var/log/xray 2>/dev/null || true
+fi
+
 # Anti-Torrent
 iptables -A FORWARD -m string --string "get_peers" --algo bm -j DROP
 iptables -A FORWARD -m string --string "announce_peer" --algo bm -j DROP
@@ -536,13 +542,20 @@ AGO3=$(date -d "3 minutes ago" +"%Y/%m/%d %H:%M")
 
 tail -n 3000 /var/log/xray/access.log | grep -E "^($NOW|$AGO1|$AGO2|$AGO3)" | grep "accepted" > /etc/wibutunnel/tmp/algojo_ip_log.txt
 
+awk '/accepted/ {
+    match($0, /[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+/); 
+    ip=substr($0, RSTART, RLENGTH);
+    match($0, /\[[^\]]+\]/);
+    email=substr($0, RSTART+1, RLENGTH-2);
+    if (ip != "127.0.0.1" && email != "" && email !~ /dummy|api/) {
+        print email " " ip
+    }
+}' /etc/wibutunnel/tmp/algojo_ip_log.txt | sort -u > /etc/wibutunnel/tmp/algojo_parsed.txt
+
 declare -A USER_IPS
-while read -r line; do
-    ip=$(echo "$line" | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | grep -v '127.0.0.1' | head -n 1)
-    email=$(echo "$line" | grep -oE '\[[^]]+@[^]]+\]' | tr -d '[]' | head -1)
-    [[ -z "$email" || "$email" == "accepted" || "$email" == *"dummy"* || "$email" == *"api"* || -z "$ip" ]] && continue
+while read -r email ip; do
     if [[ ! "${USER_IPS[$email]}" =~ "$ip" ]]; then USER_IPS[$email]+="$ip "; fi
-done < /etc/wibutunnel/tmp/algojo_ip_log.txt
+done < /etc/wibutunnel/tmp/algojo_parsed.txt
 
 while read -r line; do
     user=$(echo "$line" | cut -d: -f1)
