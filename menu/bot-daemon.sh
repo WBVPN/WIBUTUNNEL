@@ -233,11 +233,21 @@ renew_account() {
 list_account() {
     local msg="━━━━━━━━━━━━━━━━━━━━\n 📋 <b>LIST AKUN AKTIF</b>\n━━━━━━━━━━━━━━━━━━━━\n"
     
+    get_limits() {
+        local u=$1
+        local ip=$(grep "^${u}:" /etc/wibutunnel/limit_ip.db 2>/dev/null | cut -d: -f2)
+        local bw=$(grep "^${u}:" /etc/wibutunnel/limit_bw.db 2>/dev/null | cut -d: -f2)
+        [[ -z "$ip" || "$ip" == "0" ]] && ip="Bebas" || ip="${ip} IP"
+        [[ -z "$bw" || "$bw" == "0" ]] && bw="Unl" || bw="${bw} GB"
+        echo "IP: ${ip} | BW: ${bw}"
+    }
+
     msg+="\n🔹 <b>VLESS:</b>\n"
     local c_vless=0
     while IFS=":" read -r usr exp; do
         [[ -z "$usr" || "$usr" == dummy* ]] && continue
-        msg+=" ├ <code>${usr}</code> (Exp: $(echo "$exp" | awk '{print $1}'))\n"
+        local lmt=$(get_limits "$usr")
+        msg+=" ├ <code>${usr}</code> (Exp: $(echo "$exp" | awk '{print $1}') | ${lmt})\n"
         ((c_vless++))
     done < /etc/xray/vless_exp.conf
     [[ "$c_vless" -eq 0 ]] && msg+=" └ <i>Kosong</i>\n"
@@ -246,7 +256,8 @@ list_account() {
     local c_vmess=0
     while IFS=":" read -r usr exp; do
         [[ -z "$usr" || "$usr" == dummy* ]] && continue
-        msg+=" ├ <code>${usr}</code> (Exp: $(echo "$exp" | awk '{print $1}'))\n"
+        local lmt=$(get_limits "$usr")
+        msg+=" ├ <code>${usr}</code> (Exp: $(echo "$exp" | awk '{print $1}') | ${lmt})\n"
         ((c_vmess++))
     done < /etc/xray/vmess_exp.conf
     [[ "$c_vmess" -eq 0 ]] && msg+=" └ <i>Kosong</i>\n"
@@ -255,13 +266,129 @@ list_account() {
     local c_trojan=0
     while IFS=":" read -r usr exp; do
         [[ -z "$usr" || "$usr" == dummy* ]] && continue
-        msg+=" ├ <code>${usr}</code> (Exp: $(echo "$exp" | awk '{print $1}'))\n"
+        local lmt=$(get_limits "$usr")
+        msg+=" ├ <code>${usr}</code> (Exp: $(echo "$exp" | awk '{print $1}') | ${lmt})\n"
         ((c_trojan++))
     done < /etc/xray/trojan_exp.conf
     [[ "$c_trojan" -eq 0 ]] && msg+=" └ <i>Kosong</i>\n"
     
     msg+="\n━━━━━━━━━━━━━━━━━━━━"
     send_msg "$msg"
+}
+
+detail_account() {
+    local user=$1
+    if [[ ! "$user" =~ ^[a-zA-Z0-9_]+$ ]]; then return; fi
+    
+    local proto=""
+    local uuid=""
+    local exp_date=""
+    
+    if grep -q "^${user}:" /etc/xray/vless_exp.conf; then
+        proto="VLESS"
+        uuid=$(jq -r --arg u "$user" '.inbounds[1].settings.clients[] | select(.email == $u) | .id' "$CONFIG_FILE" | head -n 1)
+        exp_date=$(grep "^${user}:" /etc/xray/vless_exp.conf | cut -d: -f2- | awk '{print $1}')
+    elif grep -q "^${user}:" /etc/xray/vmess_exp.conf; then
+        proto="VMESS"
+        uuid=$(jq -r --arg u "$user" '.inbounds[4].settings.clients[] | select(.email == $u) | .id' "$CONFIG_FILE" | head -n 1)
+        exp_date=$(grep "^${user}:" /etc/xray/vmess_exp.conf | cut -d: -f2- | awk '{print $1}')
+    elif grep -q "^${user}:" /etc/xray/trojan_exp.conf; then
+        proto="TROJAN"
+        uuid=$(jq -r --arg u "$user" '.inbounds[7].settings.clients[] | select(.email == $u) | .password' "$CONFIG_FILE" | head -n 1)
+        exp_date=$(grep "^${user}:" /etc/xray/trojan_exp.conf | cut -d: -f2- | awk '{print $1}')
+    fi
+
+    if [[ -z "$proto" || -z "$uuid" ]]; then
+        send_msg "❌ <b>Gagal!</b>\nAkun <code>${user}</code> tidak ditemukan."
+        return
+    fi
+
+    local domain=$(cat /etc/xray/domain 2>/dev/null)
+    local limit_ip=$(grep "^${user}:" /etc/wibutunnel/limit_ip.db 2>/dev/null | cut -d: -f2)
+    local limit_bw=$(grep "^${user}:" /etc/wibutunnel/limit_bw.db 2>/dev/null | cut -d: -f2)
+    
+    [[ -z "$limit_ip" || "$limit_ip" -eq 0 ]] && limit_ip="Bebas" || limit_ip="${limit_ip} IP"
+    [[ -z "$limit_bw" || "$limit_bw" -eq 0 ]] && limit_bw="Unlimited" || limit_bw="${limit_bw} GB"
+
+    local link1=""
+    local link2=""
+    local link3=""
+
+    if [[ "$proto" == "VLESS" ]]; then
+        link1="vless://${uuid}@${domain}:443?path=/vless&security=tls&encryption=none&host=${domain}&type=ws&sni=${domain}#${user}"
+        link2="vless://${uuid}@${domain}:80?path=/vless-ntls&security=none&encryption=none&host=${domain}&type=ws#${user}"
+        link3="vless://${uuid}@${domain}:443?mode=gun&security=tls&encryption=none&type=grpc&serviceName=vless&sni=${domain}#${user}"
+    elif [[ "$proto" == "VMESS" ]]; then
+        link1="vmess://$(echo -n "{\"v\":\"2\",\"ps\":\"$user\",\"add\":\"$domain\",\"port\":\"443\",\"id\":\"$uuid\",\"aid\":\"0\",\"net\":\"ws\",\"path\":\"/vmess\",\"type\":\"none\",\"host\":\"$domain\",\"tls\":\"tls\",\"sni\":\"$domain\"}" | base64 -w 0)"
+        link2="vmess://$(echo -n "{\"v\":\"2\",\"ps\":\"$user\",\"add\":\"$domain\",\"port\":\"80\",\"id\":\"$uuid\",\"aid\":\"0\",\"net\":\"ws\",\"path\":\"/vmess-ntls\",\"type\":\"none\",\"host\":\"$domain\",\"tls\":\"\",\"sni\":\"\"}" | base64 -w 0)"
+        link3="vmess://$(echo -n "{\"v\":\"2\",\"ps\":\"$user\",\"add\":\"$domain\",\"port\":\"443\",\"id\":\"$uuid\",\"aid\":\"0\",\"net\":\"grpc\",\"path\":\"vmess\",\"type\":\"none\",\"host\":\"$domain\",\"tls\":\"tls\",\"sni\":\"$domain\"}" | base64 -w 0)"
+    elif [[ "$proto" == "TROJAN" ]]; then
+        link1="trojan://${uuid}@${domain}:443?path=/trojan&security=tls&host=${domain}&type=ws&sni=${domain}#${user}"
+        link2="trojan://${uuid}@${domain}:443?mode=gun&security=tls&type=grpc&serviceName=trojan&sni=${domain}#${user}"
+    fi
+
+    local CITY=$(curl -s ip-api.com/line?fields=city 2>/dev/null)
+    local ISP=$(curl -s ip-api.com/line?fields=isp 2>/dev/null)
+    [[ -z "$CITY" ]] && CITY="Unknown"; [[ -z "$ISP" ]] && ISP="Unknown"
+
+    local THICKLINE="----------------------------------------"
+    local pesan="${THICKLINE}\n"
+    pesan+="               <b>${proto}</b>\n"
+    pesan+="${THICKLINE}\n"
+    pesan+="<b>Remarks        :</b> <code>${user}</code>\n"
+    pesan+="<b>CITY           :</b> <code>${CITY}</code>\n"
+    pesan+="<b>ISP            :</b> <code>${ISP}</code>\n"
+    pesan+="<b>Domain         :</b> <code>${domain}</code>\n"
+    pesan+="<b>Limit IP       :</b> <code>${limit_ip}</code>\n"
+    pesan+="<b>Limit Kuota    :</b> <code>${limit_bw}</code>\n"
+    pesan+="<b>Port TLS       :</b> <code>443</code>\n"
+    
+    if [[ "$proto" != "TROJAN" ]]; then
+        pesan+="<b>Port none TLS  :</b> <code>80</code>\n"
+    fi
+    
+    if [[ "$proto" == "VMESS" ]]; then
+        pesan+="<b>id             :</b> <code>${uuid}</code>\n"
+        pesan+="<b>Network        :</b> <code>ws,grpc</code>\n"
+        pesan+="<b>Path ws        :</b> <code>/vmess</code>\n"
+        pesan+="<b>serviceName    :</b> <code>vmess</code>\n"
+    elif [[ "$proto" == "VLESS" ]]; then
+        pesan+="<b>id             :</b> <code>${uuid}</code>\n"
+        pesan+="<b>Encryption     :</b> <code>none</code>\n"
+        pesan+="<b>Network        :</b> <code>ws,grpc</code>\n"
+        pesan+="<b>Path ws        :</b> <code>/vless</code>\n"
+        pesan+="<b>serviceName    :</b> <code>vless</code>\n"
+    elif [[ "$proto" == "TROJAN" ]]; then
+        pesan+="<b>Password       :</b> <code>${uuid}</code>\n"
+        pesan+="<b>Network        :</b> <code>ws,grpc</code>\n"
+        pesan+="<b>Path ws        :</b> <code>/trojan</code>\n"
+        pesan+="<b>serviceName    :</b> <code>trojan</code>\n"
+    fi
+
+    pesan+="<b>Expired On     :</b> <code>${exp_date}</code>\n"
+    pesan+="${THICKLINE}\n"
+    pesan+="            <b>${proto} WS TLS</b>\n"
+    pesan+="${THICKLINE}\n"
+    pesan+="<code>${link1}</code>\n"
+
+    if [[ "$proto" != "TROJAN" ]]; then
+        pesan+="${THICKLINE}\n"
+        pesan+="          <b>${proto} WS NO TLS</b>\n"
+        pesan+="${THICKLINE}\n"
+        pesan+="<code>${link2}</code>\n"
+        pesan+="${THICKLINE}\n"
+        pesan+="             <b>${proto} GRPC</b>\n"
+        pesan+="${THICKLINE}\n"
+        pesan+="<code>${link3}</code>\n"
+    else
+        pesan+="${THICKLINE}\n"
+        pesan+="             <b>${proto} GRPC</b>\n"
+        pesan+="${THICKLINE}\n"
+        pesan+="<code>${link2}</code>\n"
+    fi
+    pesan+="${THICKLINE}"
+    
+    send_msg "$pesan"
 }
 
 while true; do
@@ -301,6 +428,7 @@ while true; do
                             MSG+="├ <code>/hapus [user]</code>\n"
                             MSG+="├ <code>/renew [user] [hari]</code>\n"
                             MSG+="├ <code>/list</code> (Daftar Akun)\n"
+                            MSG+="├ <code>/detail [user]</code> (Tampilkan Link)\n"
                             MSG+="├ <code>/admin</code> (Tambah Akses)\n"
                             MSG+="└ <code>/info</code> (Cek status VPS)\n\n"
                             MSG+="━━━━━━━━━━━━━━━━━━━━\n"
@@ -349,6 +477,9 @@ while true; do
                             ;;
                         /list)
                             list_account
+                            ;;
+                        /detail)
+                            [[ -n "$ARG1" ]] && detail_account "$ARG1" || send_msg "❌ <b>Format Salah!</b>\nGunakan: <code>/detail nama_user</code>"
                             ;;
                         /info)
                             IP=$(curl -s ipv4.icanhazip.com)
