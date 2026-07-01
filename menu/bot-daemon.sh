@@ -153,6 +153,11 @@ delete_account() {
     local user=$1
     if [[ ! "$user" =~ ^[a-zA-Z0-9_]+$ ]]; then return; fi
     
+    if jq -e --arg u "$user" '[.inbounds[].settings.clients[]?.email, .inbounds[].settings.clients[]?.password] | index($u) == null' "$CONFIG_FILE" >/dev/null 2>&1; then
+        send_msg "❌ <b>Gagal!</b>\nAkun <code>${user}</code> tidak ditemukan di database."
+        return
+    fi
+    
     jq --arg u "$user" '
         .inbounds[1].settings.clients |= map(select(.email != $u)) |
         .inbounds[2].settings.clients |= map(select(.email != $u)) |
@@ -175,6 +180,74 @@ delete_account() {
 
     systemctl restart xray >/dev/null 2>&1
     send_msg "🗑️ <b>Berhasil!</b>\nAkun <code>${user}</code> telah dimusnahkan secara permanen."
+}
+
+renew_account() {
+    local user=$1
+    local hari=$2
+    if [[ ! "$hari" =~ ^[0-9]+$ || "$hari" -le 0 ]]; then
+        send_msg "❌ <b>Format Hari Salah!</b>\nGunakan angka."
+        return
+    fi
+    
+    if jq -e --arg u "$user" '[.inbounds[].settings.clients[]?.email, .inbounds[].settings.clients[]?.password] | index($u) == null' "$CONFIG_FILE" >/dev/null 2>&1; then
+        send_msg "❌ <b>Gagal!</b>\nAkun <code>${user}</code> tidak ditemukan."
+        return
+    fi
+
+    local exp_file=""
+    if grep -q "^${user}:" /etc/xray/vless_exp.conf; then
+        exp_file="/etc/xray/vless_exp.conf"
+    elif grep -q "^${user}:" /etc/xray/vmess_exp.conf; then
+        exp_file="/etc/xray/vmess_exp.conf"
+    elif grep -q "^${user}:" /etc/xray/trojan_exp.conf; then
+        exp_file="/etc/xray/trojan_exp.conf"
+    fi
+
+    if [[ -z "$exp_file" ]]; then
+        send_msg "❌ <b>Gagal!</b>\nData masa aktif user <code>${user}</code> tidak ditemukan."
+        return
+    fi
+
+    local new_exp=$(date -d "+${hari} days" +"%Y-%m-%d %H:%M:%S")
+    local tampil_exp=$(date -d "+${hari} days" +"%Y-%m-%d")
+    sed -i "s/^${user}:.*/${user}:${new_exp}/" "$exp_file"
+    
+    send_msg "✅ <b>Berhasil Perpanjang Akun!</b>\n\n<b>User :</b> <code>${user}</code>\n<b>Ditambah :</b> ${hari} Hari\n<b>Expired Baru :</b> <code>${tampil_exp}</code>"
+}
+
+list_account() {
+    local msg="━━━━━━━━━━━━━━━━━━━━\n 📋 <b>LIST AKUN AKTIF</b>\n━━━━━━━━━━━━━━━━━━━━\n"
+    
+    msg+="\n🔹 <b>VLESS:</b>\n"
+    local c_vless=0
+    while IFS=":" read -r usr exp; do
+        [[ -z "$usr" ]] && continue
+        msg+=" ├ <code>${usr}</code> (Exp: $(echo "$exp" | awk '{print $1}'))\n"
+        ((c_vless++))
+    done < /etc/xray/vless_exp.conf
+    [[ "$c_vless" -eq 0 ]] && msg+=" └ <i>Kosong</i>\n"
+    
+    msg+="\n🔹 <b>VMESS:</b>\n"
+    local c_vmess=0
+    while IFS=":" read -r usr exp; do
+        [[ -z "$usr" ]] && continue
+        msg+=" ├ <code>${usr}</code> (Exp: $(echo "$exp" | awk '{print $1}'))\n"
+        ((c_vmess++))
+    done < /etc/xray/vmess_exp.conf
+    [[ "$c_vmess" -eq 0 ]] && msg+=" └ <i>Kosong</i>\n"
+    
+    msg+="\n🔹 <b>TROJAN:</b>\n"
+    local c_trojan=0
+    while IFS=":" read -r usr exp; do
+        [[ -z "$usr" ]] && continue
+        msg+=" ├ <code>${usr}</code> (Exp: $(echo "$exp" | awk '{print $1}'))\n"
+        ((c_trojan++))
+    done < /etc/xray/trojan_exp.conf
+    [[ "$c_trojan" -eq 0 ]] && msg+=" └ <i>Kosong</i>\n"
+    
+    msg+="\n━━━━━━━━━━━━━━━━━━━━"
+    send_msg "$msg"
 }
 
 while true; do
@@ -212,6 +285,8 @@ while true; do
                             MSG+="└ <code>/trojan [user] [hari] [ip] [gb]</code>\n\n"
                             MSG+="⚙️ <b>Menu Management</b>\n"
                             MSG+="├ <code>/hapus [user]</code>\n"
+                            MSG+="├ <code>/renew [user] [hari]</code>\n"
+                            MSG+="├ <code>/list</code> (Daftar Akun)\n"
                             MSG+="└ <code>/info</code> (Cek status VPS)\n\n"
                             MSG+="━━━━━━━━━━━━━━━━━━━━\n"
                             MSG+="<i>Contoh: /vless budi 30 2 10</i>\n"
@@ -229,6 +304,12 @@ while true; do
                             ;;
                         /hapus)
                             [[ -n "$ARG1" ]] && delete_account "$ARG1" || send_msg "❌ <b>Format Salah!</b>\nGunakan: <code>/hapus nama_user</code>"
+                            ;;
+                        /renew)
+                            [[ -n "$ARG1" && -n "$ARG2" ]] && renew_account "$ARG1" "$ARG2" || send_msg "❌ <b>Format Salah!</b>\nGunakan: <code>/renew nama_user 30</code>"
+                            ;;
+                        /list)
+                            list_account
                             ;;
                         /info)
                             IP=$(curl -s ipv4.icanhazip.com)
