@@ -1,0 +1,222 @@
+#!/bin/bash
+# ==========================================
+# WIBU TUNNELING - m-setting.sh (v4.0 RECOVERY)
+# Security Patch: Anti-Symlink Update + Fix Format Waktu + Speedtest Repo
+# ==========================================
+
+source /usr/local/bin/common.sh
+if ! command -v jq &> /dev/null; then apt-get install -y jq &>/dev/null; fi
+check_license
+
+source /etc/wibutunnel/bot.conf 2>/dev/null
+source /etc/wibutunnel/lock.conf 2>/dev/null || LOCK_DURATION=15
+
+if [[ -z "$BOT_TOKEN" ]]; then
+    STATUS_TOKEN="${RED}Belum disetting${NC}"
+else
+    TAMPIL_TOKEN="${BOT_TOKEN:0:4}..."
+    STATUS_TOKEN="${GREEN}Aktif (${TAMPIL_TOKEN})${NC}"
+fi
+
+if [[ -z "$CHAT_ID" ]]; then
+    STATUS_CHATID="${RED}Belum disetting${NC}"
+else
+    STATUS_CHATID="${GREEN}${CHAT_ID}${NC}"
+fi
+
+CEK_REBOOT=$(crontab -l 2>/dev/null | awk '!/^#/ && /\/sbin\/reboot/ {printf "%02d:%02d", $2, $1; exit}')
+STATUS_REBOOT=$([[ -z "$CEK_REBOOT" ]] && echo "${RED}Belum disetting${NC}" || echo "${GREEN}Tersetting pada ${CEK_REBOOT} WIB${NC}")
+
+CEK_BACKUP=$(crontab -l 2>/dev/null | awk '!/^#/ && /m-backup auto/ {printf "%02d:%02d", $2, $1; exit}')
+STATUS_BACKUP=$([[ -z "$CEK_BACKUP" ]] && echo "${RED}Belum disetting${NC}" || echo "${GREEN}Tersetting pada ${CEK_BACKUP} WIB${NC}")
+
+safe_update() {
+    local file_name="$1"
+    local raw_url target_name
+    target_name="${file_name%.sh}"
+    if [[ "$file_name" == "common.sh" ]]; then
+        raw_url="https://raw.githubusercontent.com/WBVPN/wibutunnel/main/common.sh?$(date +%s)"
+        target_name="common.sh"
+    else
+        raw_url="https://raw.githubusercontent.com/WBVPN/wibutunnel/main/menu/${file_name}?$(date +%s)"
+    fi
+    
+    wget -q -O "/etc/wibutunnel/tmp/${file_name}" "$raw_url" 2>/dev/null
+    if [[ -s "/etc/wibutunnel/tmp/${file_name}" ]]; then
+        mv "/etc/wibutunnel/tmp/${file_name}" "/usr/local/bin/${target_name}"
+        chmod +x "/usr/local/bin/${target_name}"
+        echo -e "${GREEN}√ Berhasil memperbarui ${target_name}${NC}"
+    else
+        echo -e "${RED}× Gagal mengunduh ${file_name} (Sistem dilindungi dari file kosong)${NC}"
+    fi
+}
+
+clear
+echo -e "$LINE"
+echo -e "            ${WHITE}MENU SETTING & MONITOR${NC}"
+echo -e "$LINE"
+echo -e "  ${CYAN}Bot Telegram : ${NC}${STATUS_TOKEN}"
+echo -e "  ${CYAN}ID Telegram  : ${NC}${STATUS_CHATID}"
+echo -e "  ${CYAN}Auto Reboot  : ${NC}${STATUS_REBOOT}"
+echo -e "  ${CYAN}Auto Backup  : ${NC}${STATUS_BACKUP}"
+echo -e "  ${CYAN}Lock Duration: ${NC}${GREEN}${LOCK_DURATION} menit${NC}"
+echo -e "$LINE"
+echo -e " ${RED}[1] Restart Semua Service${NC}"
+echo -e " ${GREEN}[2] Bersihkan Cache & RAM${NC}"
+echo -e " ${CYAN}[3] Speedtest VPS${NC}"
+echo -e " ${YELLOW}[4] Cek Bandwidth VPS (vnStat)${NC}"
+echo -e " ${BLUE}[5] Update Script (Safe Mode)${NC}"
+echo -e " ${WHITE}[6] Setup Bot Telegram${NC}"
+echo -e " ${CYAN}[7] Setup Auto Reboot VPS${NC}"
+echo -e " ${YELLOW}[8] Ganti Domain & Renew SSL${NC}"
+echo -e " ${GREEN}[9] Atur Durasi Lock Otomatis${NC}"
+echo -e " ${RED}[0] Kembali ke Dashboard Utama${NC}"
+echo -e "$LINE"
+
+echo -ne "${WHITE}Pilih menu: ${NC}"
+read -r sub_setting
+
+case $sub_setting in
+    1)
+        clear; echo -e "$LINE"; echo -e "         ${WHITE}MERESTART SERVICES...${NC}"; echo -e "$LINE"
+        systemctl restart xray haproxy cron
+        echo -e "${GREEN}Semua service berhasil direstart!${NC}"
+        read -n 1 -s -r -p "Tekan tombol apa saja..."
+        exec m-setting
+        ;;
+    2)
+        clear; echo -e "$LINE"; echo -e "         ${WHITE}MEMBERSIHKAN CACHE & RAM...${NC}"; echo -e "$LINE"
+        sync; echo 1 > /proc/sys/vm/drop_caches
+        sync; echo 2 > /proc/sys/vm/drop_caches
+        sync; echo 3 > /proc/sys/vm/drop_caches
+        echo -e "${GREEN}RAM berhasil dibersihkan!${NC}"
+        read -n 1 -s -r -p "Tekan tombol apa saja..."
+        exec m-setting
+        ;;
+    3)
+        clear; echo -e "$LINE"; echo -e "            ${WHITE}SPEEDTEST VPS${NC}"; echo -e "$LINE"
+        # Install Ookla Speedtest CLI (binary langsung)
+        if ! command -v speedtest &> /dev/null; then
+            apt-get remove -y speedtest-cli >/dev/null 2>&1
+            rm -f /usr/bin/speedtest /usr/local/bin/speedtest
+            ARCH=$(uname -m)
+            [[ "$ARCH" == "x86_64" ]] && ARCH="x86_64"
+            [[ "$ARCH" == "aarch64" ]] && ARCH="aarch64"
+            wget -qO- "https://install.speedtest.net/app/cli/ookla-speedtest-1.2.0-linux-${ARCH}.tgz" | tar xz -C /usr/bin speedtest 2>/dev/null
+            chmod +x /usr/bin/speedtest 2>/dev/null
+        fi
+        if command -v speedtest &> /dev/null; then
+            echo -e "${GREEN}[+] Speedtest Ookla Resmi Berhasil Diinstal!${NC}"
+            speedtest --accept-license --accept-gdpr
+        else
+            echo -e "${RED}Speedtest gagal diinstall.${NC}"
+        fi
+        read -n 1 -s -r -p "Tekan tombol apa saja..."
+        exec m-setting
+        ;;
+    4)
+        clear; echo -e "$LINE"; echo -e "          ${WHITE}MONITOR BANDWIDTH VPS${NC}"; echo -e "$LINE"
+        if ! command -v vnstat &> /dev/null; then
+            apt-get install -y vnstat >/dev/null 2>&1
+            systemctl enable --now vnstat >/dev/null 2>&1
+        fi
+        MAIN_IFACE=$(ip -4 route show default | awk '{print $5}' | head -n1)
+        vnstat -m -i "$MAIN_IFACE" | head -n 12
+        echo -e "$LINE"
+        read -n 1 -s -r -p "Tekan tombol apa saja..."
+        exec m-setting
+        ;;
+    5)
+        clear; echo -e "$LINE"; echo -e "         ${WHITE}UPDATE SCRIPT (SAFE MODE)${NC}"; echo -e "$LINE"
+        echo -e "${YELLOW}Mengecek dan mengunduh pembaruan...${NC}"
+        
+        safe_update "menu.sh"
+        safe_update "m-vless.sh"
+        safe_update "m-vmess.sh"
+        safe_update "m-trojan.sh"
+        safe_update "m-setting.sh"
+        safe_update "xp.sh"
+        safe_update "m-backup.sh"
+        safe_update "menu-lock.sh"
+        safe_update "menu-unlock.sh"
+        safe_update "cek-trafik.sh"
+        safe_update "common.sh"
+        
+        dos2unix /usr/local/bin/* >/dev/null 2>&1
+        echo -e "\n${GREEN}Update Selesai! Semua menu sudah versi terbaru.${NC}"
+        read -n 1 -s -r -p "Tekan tombol apa saja..."
+        exec m-setting
+        ;;
+    6)
+        clear; echo -e "$LINE"; echo -e "         ${WHITE}SETUP BOT TELEGRAM${NC}"; echo -e "$LINE"
+        read -p "Masukkan BOT TOKEN : " input_token
+        read -p "Masukkan CHAT ID   : " input_chatid
+        if [[ -n "$input_token" && -n "$input_chatid" ]]; then
+            cat > /etc/wibutunnel/bot.conf << EOF
+BOT_TOKEN="${input_token}"
+CHAT_ID="${input_chatid}"
+EOF
+            echo -e "${GREEN}Bot berhasil disimpan!${NC}"
+        fi
+        read -n 1 -s -r -p "Tekan tombol apa saja..."
+        exec m-setting
+        ;;
+    7)
+        clear; echo -e "$LINE"; echo -e "            ${WHITE}SETUP AUTO REBOOT${NC}"; echo -e "$LINE"
+        read -p "Masukkan Jam (0-23): " input_jam
+        if [[ "$input_jam" =~ ^[0-9]+$ ]] && [ "$input_jam" -le 23 ]; then
+            crontab -l 2>/dev/null | grep -v "/sbin/reboot" | crontab -
+            (crontab -l 2>/dev/null; echo "0 $input_jam * * * /sbin/reboot") | crontab -
+            systemctl restart cron
+            echo -e "${GREEN}Auto Reboot disetel jam $input_jam:00 WIB${NC}"
+        fi
+        read -p "Tekan Enter..." dummy
+        exec m-setting
+        ;;
+    8)
+        clear; echo -e "$LINE"; echo -e "       ${WHITE}GANTI DOMAIN & RENEW SSL${NC}"; echo -e "$LINE"
+        read -p "Masukkan Domain Baru: " new_domain
+        if [[ -n "$new_domain" ]]; then
+            systemctl stop haproxy xray
+            # Deteksi versi certbot
+            if certbot --version 2>/dev/null | grep -qE "certbot 2\."; then
+                certbot certonly --standalone --non-interactive --agree-tos -m "admin@${new_domain}" -d "$new_domain" --force-renewal 2>/dev/null
+            else
+                certbot certonly --standalone --register-unsafely-without-email --no-eff-email --agree-tos -d "$new_domain" --force-renewal 2>/dev/null
+            fi
+            if [[ -f "/etc/letsencrypt/live/${new_domain}/fullchain.pem" ]]; then
+                cat "/etc/letsencrypt/live/${new_domain}/fullchain.pem" "/etc/letsencrypt/live/${new_domain}/privkey.pem" > "/etc/haproxy/certs/${new_domain}.pem"
+                echo "$new_domain" > /etc/xray/domain
+                sed -i "s|bind \*:443 ssl crt .*\.pem|bind *:443 ssl crt /etc/haproxy/certs/${new_domain}.pem|g" /etc/haproxy/haproxy.cfg
+                systemctl start haproxy xray
+                echo -e "${GREEN}Domain berhasil diganti!${NC}"
+            else
+                echo -e "${RED}SSL gagal untuk $new_domain!${NC}"
+            fi
+        fi
+        read -p "Tekan Enter..." dummy
+        exec m-setting
+        ;;
+    9)
+        clear; echo -e "$LINE"; echo -e "         ${WHITE}ATUR DURASI LOCK OTOMATIS${NC}"; echo -e "$LINE"
+        echo -e "${CYAN}Saat ini durasi lock otomatis: ${GREEN}${LOCK_DURATION} menit${NC}\n"
+        read -p "Durasi Lock (menit): " new_duration
+        if [[ ! "$new_duration" =~ ^[0-9]+$ ]] || [ "$new_duration" -lt 1 ]; then
+            echo -e "${RED}Durasi minimal 1!${NC}"
+            sleep 2
+            exec m-setting
+        fi
+        echo "LOCK_DURATION=$new_duration" > /etc/wibutunnel/lock.conf
+        echo -e "${GREEN}Berhasil! Durasi lock diubah menjadi ${new_duration} menit.${NC}"
+        read -p "Tekan Enter..." dummy
+        exec m-setting
+        ;;
+    0)
+        exec menu
+        ;;
+    *)
+        echo -e "${RED}Pilihan tidak valid!${NC}"
+        sleep 1
+        exec m-setting
+        ;;
+esac
