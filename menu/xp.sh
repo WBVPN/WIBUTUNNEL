@@ -105,6 +105,14 @@ Expired On - ${exp_date}
 <i>${FOOTER}</i>"
                         curl -s --max-time 8 -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
                             -F "chat_id=${CHAT_ID}" -F "parse_mode=html" -F "text=${PESAN}" >/dev/null 2>&1
+                            
+                        if [[ -f /etc/wibutunnel/bot_admins.db ]]; then
+                            while read -r adm; do
+                                [[ -z "$adm" ]] && continue
+                                curl -s --max-time 8 -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
+                                    -F "chat_id=${adm}" -F "parse_mode=html" -F "text=${PESAN}" >/dev/null 2>&1
+                            done < /etc/wibutunnel/bot_admins.db
+                        fi
                     fi
                 fi
             fi

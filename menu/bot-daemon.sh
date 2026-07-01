@@ -276,6 +276,26 @@ list_account() {
     send_msg "$msg"
 }
 
+backup_vps() {
+    local target_id="${SENDER_ID:-$CHAT_ID}"
+    send_msg "⏳ <b>Sedang merakit file backup...</b>"
+    
+    local backup_file="/tmp/Backup-Wibutunnel-$(date +%Y-%m-%d).tar.gz"
+    rm -f "$backup_file"
+    tar -czf "$backup_file" /etc/xray /etc/wibutunnel /usr/local/etc/xray >/dev/null 2>&1
+    
+    if [[ -f "$backup_file" ]]; then
+        curl -s --max-time 60 -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendDocument" \
+            -F "chat_id=${target_id}" \
+            -F "document=@${backup_file}" \
+            -F "caption=📦 <b>Backup Wibutunnel VPS</b>\n🗓 Tanggal: <code>$(date +%Y-%m-%d %H:%M:%S)</code>\n\n<i>Simpan file ini baik-baik. File tar.gz bisa diekstrak di VPS baru.</i>" \
+            -F "parse_mode=html" >/dev/null 2>&1
+        rm -f "$backup_file"
+    else
+        send_msg "❌ <b>Gagal membuat backup!</b>"
+    fi
+}
+
 detail_account() {
     local user=$1
     if [[ ! "$user" =~ ^[a-zA-Z0-9_]+$ ]]; then return; fi
@@ -430,6 +450,7 @@ while true; do
                             MSG+="├ <code>/list</code> (Daftar Akun)\n"
                             MSG+="├ <code>/detail [user]</code> (Tampilkan Link)\n"
                             MSG+="├ <code>/admin</code> (Tambah Akses)\n"
+                            MSG+="├ <code>/backup</code> (Backup Database VPS)\n"
                             MSG+="└ <code>/info</code> (Cek status VPS)\n\n"
                             MSG+="━━━━━━━━━━━━━━━━━━━━\n"
                             MSG+="<i>Contoh: /vless budi 30 2 10</i>\n"
@@ -480,6 +501,9 @@ while true; do
                             ;;
                         /detail)
                             [[ -n "$ARG1" ]] && detail_account "$ARG1" || send_msg "❌ <b>Format Salah!</b>\nGunakan: <code>/detail nama_user</code>"
+                            ;;
+                        /backup)
+                            backup_vps
                             ;;
                         /info)
                             IP=$(curl -s ipv4.icanhazip.com)
