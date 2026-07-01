@@ -182,6 +182,19 @@ delete_account() {
     send_msg "🗑️ <b>Berhasil!</b>\nAkun <code>${user}</code> telah dimusnahkan secara permanen."
 }
 
+is_admin() {
+    local id=$1
+    if [[ "$id" == "$CHAT_ID" ]]; then
+        return 0
+    fi
+    if [[ -f /etc/wibutunnel/bot_admins.db ]]; then
+        if grep -q "^${id}$" /etc/wibutunnel/bot_admins.db; then
+            return 0
+        fi
+    fi
+    return 1
+}
+
 renew_account() {
     local user=$1
     local hari=$2
@@ -269,7 +282,7 @@ while true; do
                 SENDER_ID=$(echo "$UPDATES" | jq -r ".result[$i].message.chat.id")
                 TEXT=$(echo "$UPDATES" | jq -r ".result[$i].message.text")
 
-                if [[ "$SENDER_ID" == "$CHAT_ID" ]]; then
+                if is_admin "$SENDER_ID"; then
                     CMD=$(echo "$TEXT" | awk '{print $1}')
                     ARG1=$(echo "$TEXT" | awk '{print $2}')
                     ARG2=$(echo "$TEXT" | awk '{print $3}')
@@ -287,11 +300,36 @@ while true; do
                             MSG+="├ <code>/hapus [user]</code>\n"
                             MSG+="├ <code>/renew [user] [hari]</code>\n"
                             MSG+="├ <code>/list</code> (Daftar Akun)\n"
+                            MSG+="├ <code>/admin</code> (Tambah Akses)\n"
                             MSG+="└ <code>/info</code> (Cek status VPS)\n\n"
                             MSG+="━━━━━━━━━━━━━━━━━━━━\n"
                             MSG+="<i>Contoh: /vless budi 30 2 10</i>\n"
                             MSG+="<i>(Membuat VLESS 'budi' 30 hr, limit 2 IP, limit 10 GB)</i>"
                             send_msg "$MSG"
+                            ;;
+                        /admin)
+                            if [[ "$SENDER_ID" != "$CHAT_ID" ]]; then
+                                send_msg "❌ <b>Akses Ditolak!</b>\nHanya Admin Utama (Owner) yang bisa mengatur akses admin."
+                            elif [[ "$ARG1" == "add" && -n "$ARG2" ]]; then
+                                echo "$ARG2" >> /etc/wibutunnel/bot_admins.db
+                                send_msg "✅ <b>Berhasil!</b>\nID Telegram <code>$ARG2</code> telah ditambahkan sebagai admin bot."
+                            elif [[ "$ARG1" == "del" && -n "$ARG2" ]]; then
+                                sed -i "/^${ARG2}$/d" /etc/wibutunnel/bot_admins.db 2>/dev/null
+                                send_msg "🗑️ <b>Berhasil!</b>\nID Telegram <code>$ARG2</code> telah dihapus dari admin bot."
+                            elif [[ "$ARG1" == "list" ]]; then
+                                local adm_msg="📋 <b>Daftar Admin Bot:</b>\n1. <code>$CHAT_ID</code> (Utama)\n"
+                                if [[ -f /etc/wibutunnel/bot_admins.db ]]; then
+                                    local i=2
+                                    while read -r adm; do
+                                        [[ -z "$adm" ]] && continue
+                                        adm_msg+="${i}. <code>$adm</code>\n"
+                                        ((i++))
+                                    done < /etc/wibutunnel/bot_admins.db
+                                fi
+                                send_msg "$adm_msg"
+                            else
+                                send_msg "⚙️ <b>Menu Admin Multi-User:</b>\n├ <code>/admin add [ID_Telegram]</code>\n├ <code>/admin del [ID_Telegram]</code>\n└ <code>/admin list</code>\n\n<i>Keterangan: Minta rekan Anda mengecek ID Telegram mereka ke @userinfobot</i>"
+                            fi
                             ;;
                         /vless)
                             [[ -n "$ARG1" && -n "$ARG2" ]] && create_account "VLESS" "$ARG1" "$ARG2" "$ARG3" "$ARG4" || send_msg "❌ <b>Format Salah!</b>\nGunakan: <code>/vless nama_user 30</code>"
