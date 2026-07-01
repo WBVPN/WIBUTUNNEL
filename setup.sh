@@ -313,11 +313,17 @@ frontend ssl_sni
     mode http
     option forwardfor
     acl is_vless_grpc path_beg /vless/
+    acl is_vless_grpc path_beg %2Fvless%2F
     acl is_vmess_grpc path_beg /vmess/
+    acl is_vmess_grpc path_beg %2Fvmess%2F
     acl is_trojan_grpc path_beg /trojan/
+    acl is_trojan_grpc path_beg %2Ftrojan%2F
     acl is_vless_ws path_beg /vless
+    acl is_vless_ws path_beg %2Fvless
     acl is_vmess_ws path_beg /vmess
+    acl is_vmess_ws path_beg %2Fvmess
     acl is_trojan_ws path_beg /trojan
+    acl is_trojan_ws path_beg %2Ftrojan
     use_backend xray_vless_grpc if is_vless_grpc
     use_backend xray_vmess_grpc if is_vmess_grpc
     use_backend xray_trojan_grpc if is_trojan_grpc
@@ -349,7 +355,9 @@ frontend vless_ntls_front
     mode http
     option forwardfor
     acl is_vless_ntls path_beg /vless-ntls
+    acl is_vless_ntls path_beg %2Fvless-ntls
     acl is_vmess_ntls path_beg /vmess-ntls
+    acl is_vmess_ntls path_beg %2Fvmess-ntls
     use_backend xray_vless_ntls if is_vless_ntls
     use_backend xray_vmess_ntls if is_vmess_ntls
 
