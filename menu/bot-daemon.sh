@@ -280,7 +280,9 @@ backup_vps() {
     local target_id="${SENDER_ID:-$CHAT_ID}"
     send_msg "⏳ <b>Sedang merakit file backup...</b>"
     
-    local backup_file="/tmp/Backup_Wibutunnel_$(date +%Y-%m-%d_%H-%M).zip"
+    local domain=$(cat /etc/xray/domain 2>/dev/null || echo "Unknown")
+    local ip_vps=$(curl -sS --max-time 5 ipv4.icanhazip.com 2>/dev/null || echo "Unknown")
+    local backup_file="/tmp/${domain}-${ip_vps}.zip"
     rm -f "$backup_file"
     
     cd /
@@ -296,7 +298,8 @@ backup_vps() {
         etc/xray/domain 2>/dev/null
     
     if [[ -f "$backup_file" ]]; then
-        local caption=$(echo -e "📦 <b>Backup Wibutunnel VPS</b>\n🗓 Tanggal: <code>$(date +%Y-%m-%d %H:%M:%S)</code>\n\n<i>File dienkripsi menggunakan CHAT ID Anda.</i>")
+        local tgl=$(date "+%Y-%m-%d %H:%M:%S")
+        local caption=$(echo -e "📦 <b>Backup Wibutunnel VPS</b>\n🗓 Tanggal: <code>${tgl}</code>\n\n<i>File dienkripsi menggunakan CHAT ID Anda.</i>")
         local response=$(curl -s --max-time 60 -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendDocument" \
             -F "chat_id=${target_id}" \
             -F "document=@${backup_file}" \
