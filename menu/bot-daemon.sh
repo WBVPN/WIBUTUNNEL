@@ -556,13 +556,12 @@ while true; do
                             [[ -n "$ARG1" && -n "$ARG2" ]] && create_account "TROJAN" "$ARG1" "$ARG2" "$ARG3" "$ARG4" || send_msg "❌ <b>Format Salah!</b>\nGunakan: <code>/trojan nama_user 30</code>"
                             ;;
                         /trialvless|/trialvmess|/trialtrojan)
-                            local tr_proto=$(echo "$CMD" | sed 's/\/trial//g' | tr 'a-z' 'A-Z')
-                            local tr_waktu=${ARG1:-1h}
-                            local tr_bw=${ARG2:-1}
+                            tr_proto=$(echo "$CMD" | sed 's/\/trial//g' | tr 'a-z' 'A-Z')
+                            tr_waktu=${ARG1:-1h}
+                            tr_bw=${ARG2:-1}
                             if [[ ! "$tr_bw" =~ ^[0-9]+$ ]]; then tr_bw=1; fi
                             
-                            local tr_user="trial-$(tr -dc 'a-z0-9' < /dev/urandom | head -c 4)"
-                            send_msg "DEBUG: CMD='${CMD}', ARG1='${ARG1}', ARG2='${ARG2}', tr_waktu='${tr_waktu}'"
+                            tr_user="trial-$(tr -dc 'a-z0-9' < /dev/urandom | head -c 4)"
                             create_account "$tr_proto" "$tr_user" "$tr_waktu" "1" "$tr_bw"
                             ;;
                         /hapus)
