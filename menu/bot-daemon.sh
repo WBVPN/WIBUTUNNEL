@@ -31,8 +31,8 @@ create_account() {
     if [[ ! "$limit_ip" =~ ^[0-9]+$ ]]; then limit_ip=0; fi
     if [[ ! "$limit_bw" =~ ^[0-9]+$ ]]; then limit_bw=0; fi
     
-    if [[ ! "$user" =~ ^[-a-zA-Z0-9_]+$ ]]; then
-        send_msg "❌ <b>Nama User Salah!</b>\nHanya boleh huruf, angka, dan strip (-)."
+    if [[ -n "${user//[a-zA-Z0-9_-]/}" ]]; then
+        send_msg "❌ <b>Nama User Salah!</b>\nHanya boleh huruf, angka, dan strip (-).\nDebug: user='${user}', proto='${proto}', waktu='${hari}'"
         return
     fi
     if jq -e --arg u "$user" '[.inbounds[].settings.clients[]?.email, .inbounds[].settings.clients[]?.password] | index($u) != null' "$CONFIG_FILE" >/dev/null 2>&1; then
