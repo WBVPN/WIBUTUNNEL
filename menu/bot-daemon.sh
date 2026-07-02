@@ -649,7 +649,12 @@ while true; do
                                     else
                                         vol="${bytes} Bytes"
                                     fi
-                                    TRF_MSG+="<b>${idx}.</b> <code>${usr}</code> : ${vol}\n"
+                                    if grep -q "^${usr}:" /etc/xray/vless_exp.conf 2>/dev/null; then proto="VLESS"
+                                    elif grep -q "^${usr}:" /etc/xray/vmess_exp.conf 2>/dev/null; then proto="VMESS"
+                                    elif grep -q "^${usr}:" /etc/xray/trojan_exp.conf 2>/dev/null; then proto="TROJAN"
+                                    else proto="DELETED"
+                                    fi
+                                    TRF_MSG+="<b>${idx}.</b> <code>${usr}</code> [${proto}] : ${vol}\n"
                                     ((idx++))
                                     [[ $idx -gt 10 ]] && break
                                 done < <(awk -F':' '{ 
