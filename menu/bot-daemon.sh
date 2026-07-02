@@ -653,6 +653,7 @@ while true; do
                                     ((idx++))
                                     [[ $idx -gt 10 ]] && break
                                 done < <(awk -F':' '{ 
+                                    if ($1 ~ /^(vless|vmess|trojan)-(ws|grpc)-(tls|ntls)$/ || $1 ~ /^(vless|vmess|trojan)-grpc$/ || $1 == "api" || $1 == "direct" || $1 == "blocked") next;
                                     down=($2=="null"||$2=="")?0:$2; 
                                     up=($3=="null"||$3=="")?0:$3; 
                                     print (down+up)":"$1 
