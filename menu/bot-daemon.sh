@@ -636,7 +636,7 @@ while true; do
                             if [[ -s "/etc/wibutunnel/user_usage.db" ]]; then
                                 TRF_MSG="📊 <b>TOP 10 PEMAKAIAN QUOTA</b>\n━━━━━━━━━━━━━━━━━━━━\n"
                                 idx=1
-                                while IFS=":" read -r usr bytes; do
+                                while IFS=":" read -r bytes usr; do
                                     if [[ "$bytes" -ge 1073741824 ]]; then
                                         gb=$(awk -v b="$bytes" 'BEGIN { printf "%.2f", b / 1073741824 }')
                                         vol="${gb} GB"
@@ -652,7 +652,11 @@ while true; do
                                     TRF_MSG+="<b>${idx}.</b> <code>${usr}</code> : ${vol}\n"
                                     ((idx++))
                                     [[ $idx -gt 10 ]] && break
-                                done < <(sort -t: -k2 -nr /etc/wibutunnel/user_usage.db 2>/dev/null)
+                                done < <(awk -F':' '{ 
+                                    down=($2=="null"||$2=="")?0:$2; 
+                                    up=($3=="null"||$3=="")?0:$3; 
+                                    print (down+up)":"$1 
+                                }' /etc/wibutunnel/user_usage.db 2>/dev/null | sort -t: -k1 -nr)
                                 TRF_MSG+="━━━━━━━━━━━━━━━━━━━━"
                                 send_msg "$TRF_MSG"
                             else
