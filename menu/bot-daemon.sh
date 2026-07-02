@@ -418,8 +418,6 @@ detail_account() {
     pesan+="👤 <b>Remarks    :</b> <code>${user}</code>\n"
     pesan+="🌐 <b>Domain     :</b> <code>${domain}</code>\n"
     pesan+="🏢 <b>ISP / City :</b> <code>${ISP} / ${CITY}</code>\n"
-    pesan+="🛡️ <b>Limit IP   :</b> <code>${limit_ip}</code>\n"
-    pesan+="📊 <b>Limit BW   :</b> <code>${limit_bw}</code>\n"
     pesan+="⏳ <b>Expired On :</b> <code>${exp_date}</code>\n"
     pesan+="${THICKLINE}\n"
     pesan+="⚙️ <b>CONFIG DETAILS</b>\n"

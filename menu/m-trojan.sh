@@ -100,8 +100,6 @@ Remarks        : ${user}
 CITY           : ${CITY}
 ISP            : ${ISP}
 Domain         : ${domain}
-Limit IP       : ${limit_ip}
-Limit Kuota    : ${limit_kuota} GB
 Port TLS       : 443
 Password       : ${uuid}
 Network        : ws,grpc
