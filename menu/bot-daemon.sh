@@ -679,14 +679,12 @@ while true; do
                             
                             TIMESTAMP=$(date +"%Y/%m/%d %H:%M")
                             AGO1=$(date -d "1 minute ago" +"%Y/%m/%d %H:%M")
-                            AGO2=$(date -d "2 minutes ago" +"%Y/%m/%d %H:%M")
-                            AGO3=$(date -d "3 minutes ago" +"%Y/%m/%d %H:%M")
                             
-                            LOGIN_DATA=$(awk -v TS="$TIMESTAMP" -v A1="$AGO1" -v A2="$AGO2" -v A3="$AGO3" '
+                            LOGIN_DATA=$(awk -v TS="$TIMESTAMP" -v A1="$AGO1" '
                             BEGIN { split("", ips) }
                             $0 !~ /accepted/ { next }
                             { ts = $1 " " substr($2, 1, 5) }
-                            ts != TS && ts != A1 && ts != A2 && ts != A3 { next }
+                            ts != TS && ts != A1 { next }
                             {
                                 ip = ""; email = ""
                                 for (i=1; i<=NF; i++) {
