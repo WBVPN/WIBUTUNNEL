@@ -18,6 +18,7 @@ VPS_NAME="PROJECT-WIBU"
 BACKUP_DIR="/etc/wibutunnel/tmp"
 mkdir -p "$BACKUP_DIR"
 LOG_FILE="/var/log/wibu-backup.log"
+DOMAIN_VPS=$(cat /etc/xray/domain 2>/dev/null || echo "Unknown")
 
 # ===== AUTO BACKUP (via Cron) =====
 # DIJALANKAN PERTAMA: mencegah check_license_silent membunuh cron job
@@ -34,7 +35,7 @@ if [[ "$1" == "auto" ]]; then
     }
 
     DATE=$(date +"%Y-%m-%d_%H-%M")
-    BACKUP_FILE="${BACKUP_DIR}/Backup_${VPS_NAME}_${DATE}.zip"
+    BACKUP_FILE="${BACKUP_DIR}/${DOMAIN_VPS}-${IP_VPS}.zip"
 
     cd /
     zip -q -P "$CHAT_ID" -r "$BACKUP_FILE" \
@@ -53,12 +54,14 @@ if [[ "$1" == "auto" ]]; then
         exit 0
     fi
 
-    CAPTION=$(printf 'AUTO BACKUP VPS WIBU TUNNELING\n\nVPS: %s\nIP: %s\nDate: %s' "$VPS_NAME" "$IP_VPS" "$DATE")
+    TGL=$(date "+%Y-%m-%d %H:%M:%S")
+    CAPTION=$(echo -e "📦 <b>Backup Wibutunnel VPS</b>\n🗓 Tanggal: <code>${TGL}</code>\n\n<i>File dienkripsi menggunakan CHAT ID Anda.</i>")
 
     RESPONSE=$(curl -s --max-time 30 -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendDocument" \
         -F "chat_id=${CHAT_ID}" \
         -F "document=@${BACKUP_FILE}" \
-        -F "caption=${CAPTION}")
+        -F "caption=${CAPTION}" \
+        -F "parse_mode=html")
 
     FILE_ID=$(echo "$RESPONSE" | jq -r '.result.document.file_id // empty')
     if [[ -n "$FILE_ID" ]]; then
@@ -100,7 +103,7 @@ do_backup() {
     echo -e "${CYAN}[+] Mempersiapkan backup...${NC}"
 
     DATE=$(date +"%Y-%m-%d_%H-%M")
-    BACKUP_FILE="${BACKUP_DIR}/Backup_${VPS_NAME}_${DATE}.zip"
+    BACKUP_FILE="${BACKUP_DIR}/${DOMAIN_VPS}-${IP_VPS}.zip"
 
     cd /
     zip -q -P "$CHAT_ID" -r "$BACKUP_FILE" \
@@ -122,12 +125,14 @@ do_backup() {
 
     echo -e "${YELLOW}[+] Mengirim ke Telegram...${NC}"
 
-    CAPTION=$(printf 'BACKUP MANUAL VPS WIBU TUNNELING\n\nVPS: %s\nIP: %s\nDate: %s' "$VPS_NAME" "$IP_VPS" "$DATE")
+    TGL=$(date "+%Y-%m-%d %H:%M:%S")
+    CAPTION=$(echo -e "📦 <b>Backup Wibutunnel VPS</b>\n🗓 Tanggal: <code>${TGL}</code>\n\n<i>File dienkripsi menggunakan CHAT ID Anda.</i>")
 
     RESPONSE=$(curl -s --max-time 30 -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendDocument" \
         -F "chat_id=${CHAT_ID}" \
         -F "document=@${BACKUP_FILE}" \
-        -F "caption=${CAPTION}")
+        -F "caption=${CAPTION}" \
+        -F "parse_mode=html")
 
     if echo "$RESPONSE" | jq -e '.ok' >/dev/null 2>&1; then
         echo -e "${GREEN}[+] Backup berhasil dikirim ke Telegram!${NC}"
