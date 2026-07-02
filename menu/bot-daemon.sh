@@ -562,6 +562,7 @@ while true; do
                             if [[ ! "$tr_bw" =~ ^[0-9]+$ ]]; then tr_bw=1; fi
                             
                             local tr_user="trial-$(tr -dc 'a-z0-9' < /dev/urandom | head -c 4)"
+                            send_msg "DEBUG: CMD='${CMD}', ARG1='${ARG1}', ARG2='${ARG2}', tr_waktu='${tr_waktu}'"
                             create_account "$tr_proto" "$tr_user" "$tr_waktu" "1" "$tr_bw"
                             ;;
                         /hapus)
