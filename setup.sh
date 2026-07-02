@@ -69,6 +69,28 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "     STARTING INSTALL WIBU TUNNELING (FINAL)      "
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
+# [NEW] DISABLE IPV6 SECARA PERMANEN (CEGAH APT/XRAY ERROR)
+echo -e "\e[1;36m[+] Menonaktifkan IPv6 untuk mencegah masalah routing...\e[0m"
+sysctl -w net.ipv6.conf.all.disable_ipv6=1 >/dev/null 2>&1
+sysctl -w net.ipv6.conf.default.disable_ipv6=1 >/dev/null 2>&1
+sysctl -w net.ipv6.conf.lo.disable_ipv6=1 >/dev/null 2>&1
+if ! grep -q "net.ipv6.conf.all.disable_ipv6" /etc/sysctl.conf; then
+    cat <<EOF >> /etc/sysctl.conf
+net.ipv6.conf.all.disable_ipv6 = 1
+net.ipv6.conf.default.disable_ipv6 = 1
+net.ipv6.conf.lo.disable_ipv6 = 1
+EOF
+fi
+sysctl -p >/dev/null 2>&1
+
+if command -v update-grub >/dev/null 2>&1 && [[ -f /etc/default/grub ]]; then
+    if ! grep -q "ipv6.disable=1" /etc/default/grub; then
+        sed -i 's/GRUB_CMDLINE_LINUX="/GRUB_CMDLINE_LINUX="ipv6.disable=1 /' /etc/default/grub
+        update-grub >/dev/null 2>&1
+    fi
+fi
+echo -e "\e[1;32m[+] IPv6 berhasil dimatikan secara permanen!\e[0m"
+
 # DOMAIN INPUT
 while true; do
     read -p "Masukkan Domain Anda: " domain
