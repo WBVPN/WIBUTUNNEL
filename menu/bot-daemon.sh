@@ -16,17 +16,17 @@ send_msg() {
     local keyboard="$2"
     if [[ -n "$keyboard" ]]; then
         curl -s --max-time 10 -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
-            -F "chat_id=${target_id}" \
-            -F "disable_web_page_preview=true" \
-            -F "parse_mode=html" \
-            -F "text=${text}" \
-            -F "reply_markup=${keyboard}" >/dev/null 2>&1
+            --data-urlencode "chat_id=${target_id}" \
+            --data-urlencode "disable_web_page_preview=true" \
+            --data-urlencode "parse_mode=html" \
+            --data-urlencode "text=${text}" \
+            --data-urlencode "reply_markup=${keyboard}" >> /etc/wibutunnel/tmp/bot_error.log 2>&1
     else
         curl -s --max-time 10 -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
-            -d "chat_id=${target_id}" \
-            -d "disable_web_page_preview=true" \
-            -d "parse_mode=html" \
-            -d "text=${text}" >/dev/null 2>&1
+            --data-urlencode "chat_id=${target_id}" \
+            --data-urlencode "disable_web_page_preview=true" \
+            --data-urlencode "parse_mode=html" \
+            --data-urlencode "text=${text}" >> /etc/wibutunnel/tmp/bot_error.log 2>&1
     fi
 }
 
@@ -480,6 +480,8 @@ while true; do
                 # Handle direct message
                 TEXT=$(echo "$UPDATES" | jq -r ".result[$i].message.text // empty")
                 TEXT="${TEXT//$'\r'/}"
+                
+                echo "[$(date)] RECV TEXT: $TEXT from $SENDER_ID (Admin: $CHAT_ID)" >> /etc/wibutunnel/tmp/bot_error.log
 
                 if is_admin "$SENDER_ID"; then
                     CMD=$(echo "$TEXT" | awk '{print $1}')
