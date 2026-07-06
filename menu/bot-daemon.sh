@@ -649,7 +649,7 @@ while true; do
                                     if grep -q "^${usr}:" /etc/xray/vless_exp.conf 2>/dev/null; then proto="VLESS"
                                     elif grep -q "^${usr}:" /etc/xray/vmess_exp.conf 2>/dev/null; then proto="VMESS"
                                     elif grep -q "^${usr}:" /etc/xray/trojan_exp.conf 2>/dev/null; then proto="TROJAN"
-                                    else proto="DELETED"
+                                    else continue
                                     fi
                                     TRF_MSG+="<b>${idx}.</b> <code>${usr}</code> [${proto}] : ${vol}\n"
                                     ((idx++))
@@ -716,7 +716,7 @@ while true; do
                                     if grep -q "^${usr}:" /etc/xray/vless_exp.conf 2>/dev/null; then proto="VLESS"
                                     elif grep -q "^${usr}:" /etc/xray/vmess_exp.conf 2>/dev/null; then proto="VMESS"
                                     elif grep -q "^${usr}:" /etc/xray/trojan_exp.conf 2>/dev/null; then proto="TROJAN"
-                                    else proto="DELETED"
+                                    else continue
                                     fi
                                     LOG_MSG+="👤 <code>${usr}</code> [${proto}]\n└ 🌐 IP: ${iplist} (${count} Login)\n\n"
                                 done <<< "$LOGIN_DATA"
@@ -782,7 +782,7 @@ while true; do
                                         elif [[ "$bytes" -ge 1048576 ]]; then mb=$(awk -v b="$bytes" 'BEGIN { printf "%.2f", b / 1048576 }'); vol="${mb} MB"
                                         elif [[ "$bytes" -ge 1024 ]]; then kb=$(awk -v b="$bytes" 'BEGIN { printf "%.2f", b / 1024 }'); vol="${kb} KB"
                                         else vol="${bytes} Bytes"; fi
-                                        if grep -q "^${usr}:" /etc/xray/vless_exp.conf 2>/dev/null; then proto="VLESS"; elif grep -q "^${usr}:" /etc/xray/vmess_exp.conf 2>/dev/null; then proto="VMESS"; elif grep -q "^${usr}:" /etc/xray/trojan_exp.conf 2>/dev/null; then proto="TROJAN"; else proto="DELETED"; fi
+                                        if grep -q "^${usr}:" /etc/xray/vless_exp.conf 2>/dev/null; then proto="VLESS"; elif grep -q "^${usr}:" /etc/xray/vmess_exp.conf 2>/dev/null; then proto="VMESS"; elif grep -q "^${usr}:" /etc/xray/trojan_exp.conf 2>/dev/null; then proto="TROJAN"; else continue; fi
                                         TRF_MSG+="<b>${idx}.</b> <code>${usr}</code> [${proto}] : ${vol}\n"
                                         ((idx++)); [[ $idx -gt 10 ]] && break
                                     done < <(awk -F':' '{ if ($1 ~ /^(vless|vmess|trojan)-(ws|grpc)-(tls|ntls)$/ || $1 ~ /^(vless|vmess|trojan)-grpc$/ || $1 == "api" || $1 == "direct" || $1 == "blocked") next; down=($2=="null"||$2=="")?0:$2; up=($3=="null"||$3=="")?0:$3; print (down+up)":"$1 }' /etc/wibutunnel/user_usage.db 2>/dev/null | sort -t: -k1 -nr)
@@ -799,7 +799,7 @@ while true; do
                                     if [[ -z "$LOGIN_DATA" ]]; then send_msg "🟢 <b>ONLINE USERS (LIVE)</b>\n━━━━━━━━━━━━━━━━━━━━\n<i>Saat ini tidak ada user yang aktif.</i>\n━━━━━━━━━━━━━━━━━━━━"; else
                                         LOG_MSG="🟢 <b>ONLINE USERS (LIVE)</b>\n━━━━━━━━━━━━━━━━━━━━\n"
                                         while IFS="|" read -r usr count iplist; do
-                                            if grep -q "^${usr}:" /etc/xray/vless_exp.conf 2>/dev/null; then proto="VLESS"; elif grep -q "^${usr}:" /etc/xray/vmess_exp.conf 2>/dev/null; then proto="VMESS"; elif grep -q "^${usr}:" /etc/xray/trojan_exp.conf 2>/dev/null; then proto="TROJAN"; else proto="DELETED"; fi
+                                            if grep -q "^${usr}:" /etc/xray/vless_exp.conf 2>/dev/null; then proto="VLESS"; elif grep -q "^${usr}:" /etc/xray/vmess_exp.conf 2>/dev/null; then proto="VMESS"; elif grep -q "^${usr}:" /etc/xray/trojan_exp.conf 2>/dev/null; then proto="TROJAN"; else continue; fi
                                             LOG_MSG+="👤 <code>${usr}</code> [${proto}]\n└ 🌐 IP: ${iplist} (${count} Login)\n\n"
                                         done <<< "$LOGIN_DATA"
                                         LOG_MSG+="━━━━━━━━━━━━━━━━━━━━"
