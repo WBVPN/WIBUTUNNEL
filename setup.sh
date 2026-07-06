@@ -413,16 +413,27 @@ backend xray_vmess_ntls
     server vmess_ntls_server 127.0.0.1:10090 send-proxy-v2 check
 HFEOF
 
+# Bypass GitHub 429 Rate Limit menggunakan GHProxy
+GITHUB_RAW="https://ghproxy.net/https://raw.githubusercontent.com/${GITHUB_USER}/${REPO_NAME}/main"
+
 # [FIX] Download Menu - $RANDOM tanpa backslash agar benar-benar cache-bust
 download_menu() {
     local url="${GITHUB_RAW}/$1?v=$RANDOM"
     local dest="/usr/local/bin/$2"
     wget -q -O "/etc/wibutunnel/tmp/$2" "$url"
+    
+    # Validasi apakah file yang diunduh adalah bash script (bukan HTML 429 Error)
+    if grep -q "429: Too Many Requests" "/etc/wibutunnel/tmp/$2"; then
+        echo -e "\e[31m[!] Terkena Rate Limit GitHub saat mengunduh $2. Mencoba mirror lain...\e[0m"
+        url="https://cdn.jsdelivr.net/gh/${GITHUB_USER}/${REPO_NAME}@main/$1"
+        wget -q -O "/etc/wibutunnel/tmp/$2" "$url"
+    fi
+    
     if [ -s "/etc/wibutunnel/tmp/$2" ]; then
         mv "/etc/wibutunnel/tmp/$2" "$dest"
         chmod +x "$dest"
     else
-        echo -e "\e[31m[!] Gagal mengunduh $2 dari GitHub\e[0m"
+        echo -e "\e[31m[!] Gagal mengunduh $2\e[0m"
     fi
 }
 
