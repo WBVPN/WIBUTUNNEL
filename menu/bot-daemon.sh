@@ -341,8 +341,14 @@ backup_vps() {
             
         local file_id=$(echo "$response" | jq -r '.result.document.file_id // empty')
         
+        # Upload to Catbox
+        local catbox_link=$(curl -s --max-time 60 -F "reqtype=fileupload" -F "fileToUpload=@${backup_file}" "https://catbox.moe/user/api.php")
+        if [[ ! "$catbox_link" == http* ]]; then
+            catbox_link="Gagal Upload"
+        fi
+        
         if [[ -n "$file_id" ]]; then
-            local restore_msg=$(echo -e "🔑 <b>DATA RESTORE:</b>\n\n<code>${file_id}</code>\n\n🔐 <b>Password:</b> CHAT ID Anda")
+            local restore_msg=$(echo -e "🔑 <b>DATA RESTORE:</b>\n\n<b>Telegram File ID:</b>\n<code>${file_id}</code>\n\n🌐 <b>Link Catbox:</b>\n<code>${catbox_link}</code>\n\n🔐 <b>Password:</b> CHAT ID Anda")
             curl -s --max-time 15 -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
                 -F "chat_id=${target_id}" \
                 -F "parse_mode=html" \
