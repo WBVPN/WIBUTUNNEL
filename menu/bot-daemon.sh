@@ -332,7 +332,7 @@ backup_vps() {
     
     if [[ -f "$backup_file" ]]; then
         local tgl=$(date "+%Y-%m-%d %H:%M:%S")
-        local caption=$(echo -e "📦 <b>Backup Wibutunnel VPS</b>\n🗓 Tanggal: <code>${tgl}</code>\n\n<i>File dienkripsi menggunakan CHAT ID Anda.</i>")
+        local caption=$(echo -e "📦 <b>Backup Wibutunnel VPS</b>\n🗓 Tanggal: <code>${tgl}</code>\n\n<i>Mengunggah dan membuat File ID...</i>")
         local response=$(curl -s --max-time 60 -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendDocument" \
             -F "chat_id=${target_id}" \
             -F "document=@${backup_file}" \
@@ -340,13 +340,15 @@ backup_vps() {
             -F "parse_mode=html")
             
         local file_id=$(echo "$response" | jq -r '.result.document.file_id // empty')
+        local msg_id=$(echo "$response" | jq -r '.result.message_id // empty')
         
-        if [[ -n "$file_id" ]]; then
-            local restore_msg=$(echo -e "🔑 <b>DATA RESTORE:</b>\n\n<code>${file_id}</code>\n\n🔐 <b>Password:</b> CHAT ID Anda")
-            curl -s --max-time 15 -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
+        if [[ -n "$file_id" && -n "$msg_id" && "$msg_id" != "null" ]]; then
+            local new_caption=$(echo -e "📦 <b>Backup Wibutunnel VPS</b>\n🗓 Tanggal: <code>${tgl}</code>\n\n🔑 <b>DATA RESTORE:</b>\n<code>${file_id}</code>\n\n🔐 <b>Password:</b> CHAT ID Anda")
+            curl -s --max-time 15 -X POST "https://api.telegram.org/bot${BOT_TOKEN}/editMessageCaption" \
                 -F "chat_id=${target_id}" \
+                -F "message_id=${msg_id}" \
                 -F "parse_mode=html" \
-                -F "text=${restore_msg}" >/dev/null 2>&1
+                -F "caption=${new_caption}" >/dev/null 2>&1
         fi
         
         rm -f "$backup_file"
