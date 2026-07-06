@@ -13,11 +13,21 @@ touch $OFFSET_FILE
 send_msg() {
     local text=$(echo -e "$1")
     local target_id="${SENDER_ID:-$CHAT_ID}"
-    curl -s --max-time 10 -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
-        --data-urlencode "chat_id=${target_id}" \
-        --data-urlencode "disable_web_page_preview=true" \
-        --data-urlencode "parse_mode=html" \
-        --data-urlencode "text=${text}" >/dev/null 2>&1
+    local keyboard="$2"
+    if [[ -n "$keyboard" ]]; then
+        curl -s --max-time 10 -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
+            -F "chat_id=${target_id}" \
+            -F "disable_web_page_preview=true" \
+            -F "parse_mode=html" \
+            -F "text=${text}" \
+            -F "reply_markup=${keyboard}" >/dev/null 2>&1
+    else
+        curl -s --max-time 10 -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
+            -d "chat_id=${target_id}" \
+            -d "disable_web_page_preview=true" \
+            -d "parse_mode=html" \
+            -d "text=${text}" >/dev/null 2>&1
+    fi
 }
 
 create_account() {
@@ -480,31 +490,16 @@ while true; do
                     
                     case "$CMD" in
                         /start|/menu|/help)
-                            MSG="━━━━━━━━━━━━━━━━━━━━\n 🤖 <b>WIBUTUNNEL PANEL BOT</b>\n━━━━━━━━━━━━━━━━━━━━\n\n"
-                            MSG+="✨ <b>Menu Create Account</b>\n"
-                            MSG+="├ <code>/vless [user] [hari/jam] [ip] [gb]</code>\n"
-                            MSG+="├ <code>/vmess [user] [hari/jam] [ip] [gb]</code>\n"
-                            MSG+="├ <code>/trojan [user] [hari/jam] [ip] [gb]</code>\n"
-                            MSG+="├ <code>/trialvless [waktu] [gb]</code>\n"
-                            MSG+="├ <code>/trialvmess [waktu] [gb]</code>\n"
-                            MSG+="└ <code>/trialtrojan [waktu] [gb]</code>\n\n"
-                            MSG+="⚙️ <b>Menu Management</b>\n"
-                            MSG+="├ <code>/hapus [user]</code>\n"
-                            MSG+="├ <code>/renew [user] [hari]</code>\n"
-                            MSG+="├ <code>/list</code> (Daftar Akun)\n"
-                            MSG+="├ <code>/detail [user]</code> (Tampilkan Link)\n"
-                            MSG+="├ <code>/admin</code> (Tambah Akses)\n"
-                            MSG+="├ <code>/backup</code> (Backup Database VPS)\n"
-                            MSG+="├ <code>/lock [user]</code> (Kunci Akun)\n"
-                            MSG+="├ <code>/unlock [user]</code> (Buka Kunci)\n"
-                            MSG+="├ <code>/cek_trafik</code> (Top Pemakaian)\n"
-                            MSG+="├ <code>/cek_login</code> (User Online)\n"
-                            MSG+="└ <code>/info</code> (Cek status VPS)\n\n"
-                            MSG+="━━━━━━━━━━━━━━━━━━━━\n"
-                            MSG+="<i>Contoh Normal: /vless budi 30 2 10</i>\n"
-                            MSG+="<i>Contoh Per-Jam: /vless budi 12h 2 10</i>\n"
-                            MSG+="<i>Contoh Trial: /trialvless 30m 1</i>"
-                            send_msg "$MSG"
+                            MSG="━━━━━━━━━━━━━━━━━━━━\n 🤖 <b>WIBUTUNNEL PANEL BOT</b>\n━━━━━━━━━━━━━━━━━━━━\n\nSelamat datang di Panel Kendali VPS. Silakan pilih menu di bawah ini:"
+                            
+                            local kb='{"inline_keyboard":['
+                            kb+='[{"text":"➕ Create Account","callback_data":"cmd_create"},{"text":"⚙️ Kelola Akun","callback_data":"cmd_manage"}],'
+                            kb+='[{"text":"📋 List Akun","callback_data":"cmd_list"},{"text":"📊 Cek Trafik","callback_data":"cmd_trafik"}],'
+                            kb+='[{"text":"🟢 Cek Login","callback_data":"cmd_login"},{"text":"💻 Info VPS","callback_data":"cmd_info"}],'
+                            kb+='[{"text":"📦 Backup","callback_data":"cmd_backup"}]'
+                            kb+=']}'
+                            
+                            send_msg "$MSG" "$kb"
                             ;;
                         /admin)
                             if [[ "$SENDER_ID" != "$CHAT_ID" ]]; then
@@ -707,6 +702,91 @@ while true; do
                             ;;
                     esac
                 fi
+                
+                # Handle Callback Queries
+                CB_ID=$(echo "$UPDATES" | jq -r ".result[$i].callback_query.id // empty")
+                if [[ -n "$CB_ID" ]]; then
+                    SENDER_ID=$(echo "$UPDATES" | jq -r ".result[$i].callback_query.message.chat.id")
+                    DATA=$(echo "$UPDATES" | jq -r ".result[$i].callback_query.data // empty")
+                    curl -s "https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery?callback_query_id=${CB_ID}" >/dev/null
+                    
+                    if is_admin "$SENDER_ID"; then
+                        case "$DATA" in
+                            cmd_list) list_account ;;
+                            cmd_trafik) TEXT="/cek_trafik"; CMD="/cek_trafik" ;; # Trigger text parsing below or call directly
+                            cmd_login) TEXT="/cek_login"; CMD="/cek_login" ;;
+                            cmd_info) TEXT="/info"; CMD="/info" ;;
+                            cmd_backup) backup_vps ;;
+                            cmd_create)
+                                msg_create="✨ <b>Cara Membuat Akun:</b>\nKetik perintah berikut di chat:\n\n"
+                                msg_create+="<code>/vless [nama] [hari] [ip] [gb]</code>\n"
+                                msg_create+="<code>/vmess [nama] [hari] [ip] [gb]</code>\n"
+                                msg_create+="<code>/trojan [nama] [hari] [ip] [gb]</code>\n\n"
+                                msg_create+="<b>Contoh:</b> <code>/vless budi 30 2 10</code>\n"
+                                msg_create+="<b>Contoh Trial:</b> <code>/trialvless 1h 1</code>"
+                                send_msg "$msg_create"
+                                ;;
+                            cmd_manage)
+                                msg_manage="⚙️ <b>Cara Kelola Akun:</b>\nKetik perintah berikut di chat:\n\n"
+                                msg_manage+="<b>Hapus:</b> <code>/hapus [nama]</code>\n"
+                                msg_manage+="<b>Perpanjang:</b> <code>/renew [nama] [hari]</code>\n"
+                                msg_manage+="<b>Cek Link:</b> <code>/detail [nama]</code>\n"
+                                msg_manage+="<b>Kunci (Lock):</b> <code>/lock [nama]</code>\n"
+                                msg_manage+="<b>Buka (Unlock):</b> <code>/unlock [nama]</code>\n"
+                                send_msg "$msg_manage"
+                                ;;
+                        esac
+                        
+                        # Hack to reuse existing commands for simple ones
+                        if [[ "$DATA" == "cmd_trafik" || "$DATA" == "cmd_login" || "$DATA" == "cmd_info" ]]; then
+                            # Copy from above
+                            if [[ "$DATA" == "cmd_info" ]]; then
+                                IP=$(curl -sS --max-time 3 ipv4.icanhazip.com 2>/dev/null)
+                                UPTIME=$(uptime -p | cut -d' ' -f2-)
+                                RAM=$(free -m | awk '/Mem:/ {print $3" MB / "$2" MB"}')
+                                CPU=$(top -bn1 | grep "Cpu(s)" | sed "s/.*, *\([0-9.]*\)%* id.*/\1/" | awk '{print 100 - $1}')
+                                DISK=$(df -h / | awk 'NR==2 {print $3" / "$2" ("$5")"}')
+                                OS=$(grep -w PRETTY_NAME /etc/os-release | cut -d= -f2 | tr -d '"')
+                                INFO_MSG="💻 <b>INFORMASI VPS SERVER</b>\n━━━━━━━━━━━━━━━━━━━━\n<b>🖥 OS     :</b> <code>${OS}</code>\n<b>🌐 IP     :</b> <code>${IP}</code>\n<b>⏱ Uptime :</b> <code>${UPTIME}</code>\n<b>🧠 RAM    :</b> <code>${RAM}</code>\n<b>⚡️ CPU    :</b> <code>${CPU}%</code>\n<b>💾 Disk   :</b> <code>${DISK}</code>\n━━━━━━━━━━━━━━━━━━━━"
+                                send_msg "$INFO_MSG"
+                            elif [[ "$DATA" == "cmd_trafik" ]]; then
+                                if [[ -s "/etc/wibutunnel/user_usage.db" ]]; then
+                                    TRF_MSG="📊 <b>TOP 10 PEMAKAIAN QUOTA</b>\n━━━━━━━━━━━━━━━━━━━━\n"
+                                    idx=1
+                                    while IFS=":" read -r bytes usr; do
+                                        if [[ "$bytes" -ge 1073741824 ]]; then gb=$(awk -v b="$bytes" 'BEGIN { printf "%.2f", b / 1073741824 }'); vol="${gb} GB"
+                                        elif [[ "$bytes" -ge 1048576 ]]; then mb=$(awk -v b="$bytes" 'BEGIN { printf "%.2f", b / 1048576 }'); vol="${mb} MB"
+                                        elif [[ "$bytes" -ge 1024 ]]; then kb=$(awk -v b="$bytes" 'BEGIN { printf "%.2f", b / 1024 }'); vol="${kb} KB"
+                                        else vol="${bytes} Bytes"; fi
+                                        if grep -q "^${usr}:" /etc/xray/vless_exp.conf 2>/dev/null; then proto="VLESS"; elif grep -q "^${usr}:" /etc/xray/vmess_exp.conf 2>/dev/null; then proto="VMESS"; elif grep -q "^${usr}:" /etc/xray/trojan_exp.conf 2>/dev/null; then proto="TROJAN"; else proto="DELETED"; fi
+                                        TRF_MSG+="<b>${idx}.</b> <code>${usr}</code> [${proto}] : ${vol}\n"
+                                        ((idx++)); [[ $idx -gt 10 ]] && break
+                                    done < <(awk -F':' '{ if ($1 ~ /^(vless|vmess|trojan)-(ws|grpc)-(tls|ntls)$/ || $1 ~ /^(vless|vmess|trojan)-grpc$/ || $1 == "api" || $1 == "direct" || $1 == "blocked") next; down=($2=="null"||$2=="")?0:$2; up=($3=="null"||$3=="")?0:$3; print (down+up)":"$1 }' /etc/wibutunnel/user_usage.db 2>/dev/null | sort -t: -k1 -nr)
+                                    TRF_MSG+="━━━━━━━━━━━━━━━━━━━━"
+                                    send_msg "$TRF_MSG"
+                                else
+                                    send_msg "📊 <b>Belum ada data trafik pemakaian.</b>"
+                                fi
+                            elif [[ "$DATA" == "cmd_login" ]]; then
+                                LOG_FILE="/var/log/xray/access.log"
+                                if [[ ! -s "$LOG_FILE" ]]; then send_msg "❌ <b>Belum ada data log aktif (kosong).</b>"; else
+                                    TIMESTAMP=$(date +"%Y/%m/%d %H:%M"); AGO1=$(date -d "1 minute ago" +"%Y/%m/%d %H:%M")
+                                    LOGIN_DATA=$(awk -v TS="$TIMESTAMP" -v A1="$AGO1" 'BEGIN { split("", ips) } $0 !~ /accepted/ { next } { ts = $1 " " substr($2, 1, 5) } ts != TS && ts != A1 { next } { ip = ""; email = ""; for (i=1; i<=NF; i++) { if ($i ~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+(:[0-9]+)?$/ && $i !~ /^127\.0\.0\.1/) { ip = $i; sub(/:.*/, "", ip); break } }; for (i=1; i<=NF; i++) { if ($i == "email:" && i<NF) { email = $(i+1); sub(/\]/, "", email); break } }; if (ip == "" || email == "" || email ~ /^dummy|api/) next; key = email SUBSEP ip; if (!(key in seen)) { seen[key] = 1; ips[email] = ips[email] (ips[email] ? ", " : "") ip; counts[email]++ } } END { for (e in ips) print e "|" counts[e] "|" ips[e] }' "$LOG_FILE" 2>/dev/null)
+                                    if [[ -z "$LOGIN_DATA" ]]; then send_msg "🟢 <b>ONLINE USERS (LIVE)</b>\n━━━━━━━━━━━━━━━━━━━━\n<i>Saat ini tidak ada user yang aktif.</i>\n━━━━━━━━━━━━━━━━━━━━"; else
+                                        LOG_MSG="🟢 <b>ONLINE USERS (LIVE)</b>\n━━━━━━━━━━━━━━━━━━━━\n"
+                                        while IFS="|" read -r usr count iplist; do
+                                            if grep -q "^${usr}:" /etc/xray/vless_exp.conf 2>/dev/null; then proto="VLESS"; elif grep -q "^${usr}:" /etc/xray/vmess_exp.conf 2>/dev/null; then proto="VMESS"; elif grep -q "^${usr}:" /etc/xray/trojan_exp.conf 2>/dev/null; then proto="TROJAN"; else proto="DELETED"; fi
+                                            LOG_MSG+="👤 <code>${usr}</code> [${proto}]\n└ 🌐 IP: ${iplist} (${count} Login)\n\n"
+                                        done <<< "$LOGIN_DATA"
+                                        LOG_MSG+="━━━━━━━━━━━━━━━━━━━━"
+                                        send_msg "$LOG_MSG"
+                                    fi
+                                fi
+                            fi
+                        fi
+                    fi
+                fi
+
                 echo "$((UPDATE_ID + 1))" > $OFFSET_FILE
             done
         fi
