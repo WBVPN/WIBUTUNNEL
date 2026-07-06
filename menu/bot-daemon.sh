@@ -311,7 +311,14 @@ list_account() {
 
 backup_vps() {
     local target_id="${SENDER_ID:-$CHAT_ID}"
-    send_msg "⏳ <b>Sedang merakit file backup...</b>"
+    
+    # Send loading message and capture message_id
+    local load_resp=$(curl -s --max-time 10 -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
+        -F "chat_id=${target_id}" \
+        -F "disable_web_page_preview=true" \
+        -F "parse_mode=html" \
+        -F "text=⏳ <b>Sedang merakit file backup...</b>")
+    local load_msg_id=$(echo "$load_resp" | jq -r '.result.message_id // empty')
     
     local domain=$(cat /etc/xray/domain 2>/dev/null || echo "Unknown")
     local ip_vps=$(curl -sS --max-time 5 ipv4.icanhazip.com 2>/dev/null || echo "Unknown")
@@ -352,8 +359,21 @@ backup_vps() {
         fi
         
         rm -f "$backup_file"
+        
+        # Hapus pesan loading
+        if [[ -n "$load_msg_id" && "$load_msg_id" != "null" ]]; then
+            curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/deleteMessage" \
+                -F "chat_id=${target_id}" \
+                -F "message_id=${load_msg_id}" >/dev/null 2>&1
+        fi
     else
         send_msg "❌ <b>Gagal membuat backup!</b>"
+        # Tetap hapus pesan loading walau gagal
+        if [[ -n "$load_msg_id" && "$load_msg_id" != "null" ]]; then
+            curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/deleteMessage" \
+                -F "chat_id=${target_id}" \
+                -F "message_id=${load_msg_id}" >/dev/null 2>&1
+        fi
     fi
 }
 
