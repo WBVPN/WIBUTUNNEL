@@ -41,6 +41,21 @@ edit_msg() {
     fi
 }
 
+send_loading() {
+    local text="$1"
+    local target_id="${SENDER_ID:-$CHAT_ID}"
+    local resp=$(curl -s --max-time 10 -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage"         -F "chat_id=${target_id}"         -F "disable_web_page_preview=true"         -F "parse_mode=html"         -F "text=${text}")
+    LOADING_MSG_ID=$(echo "$resp" | jq -r '.result.message_id // empty')
+}
+
+delete_loading() {
+    if [[ -n "$LOADING_MSG_ID" ]]; then
+        local target_id="${SENDER_ID:-$CHAT_ID}"
+        curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/deleteMessage" -d "chat_id=${target_id}&message_id=${LOADING_MSG_ID}" >/dev/null
+        LOADING_MSG_ID=""
+    fi
+}
+
 create_account() {
     local proto=$1
     local user=$2
@@ -552,8 +567,9 @@ while true; do
                                     source "/etc/wibutunnel/tmp/data_${SENDER_ID}"
                                     GB=$TEXT
                                     rm -f "/etc/wibutunnel/tmp/state_${SENDER_ID}" "/etc/wibutunnel/tmp/data_${SENDER_ID}"
-                                    send_msg "⏳ <b>Sedang membuat akun $PROTO, mohon tunggu...</b>"
+                                    send_loading "⏳ <b>Sedang merakit akun $PROTO, mohon tunggu sebentar...</b>"
                                     create_account "$PROTO" "$USER" "$HARI" "$IP" "$GB"
+                                    delete_loading
                                 else
                                     send_msg "⚠️ <b>Error:</b> Harap ketik <b>angka</b> untuk limit kuota GB!"
                                 fi
@@ -793,89 +809,7 @@ while true; do
                     SENDER_ID=$(echo "$UPDATES" | jq -r ".result[$i].callback_query.message.chat.id")
                     MESSAGE_ID=$(echo "$UPDATES" | jq -r ".result[$i].callback_query.message.message_id")
                     DATA=$(echo "$UPDATES" | jq -r ".result[$i].callback_query.data // empty")
-                    curl -s "https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery?callback_query_id=${CB_ID}" >/dev/null
-                    
-                                    if [[ -n "$TEXT" && -f "/etc/wibutunnel/tmp/state_${SENDER_ID}" ]]; then
-                    if [[ "$TEXT" == "/cancel" || "$TEXT" == "/menu" || "$TEXT" == "/start" ]]; then
-                        rm -f "/etc/wibutunnel/tmp/state_${SENDER_ID}" "/etc/wibutunnel/tmp/data_${SENDER_ID}"
-                        send_msg "❌ <b>Aksi Dibatalkan.</b>"
-                        # Tetap lanjut biarkan parse /menu di bawah
-                    else
-                        STATE=$(cat "/etc/wibutunnel/tmp/state_${SENDER_ID}")
-                        case "$STATE" in
-                            CREATE_USER)
-                                echo "USER=$TEXT" >> "/etc/wibutunnel/tmp/data_${SENDER_ID}"
-                                echo "CREATE_HARI" > "/etc/wibutunnel/tmp/state_${SENDER_ID}"
-                                send_msg "✅ Username: <code>$TEXT</code>\n\n➡️ <b>Berapa durasi aktifnya?</b>\n(Ketik angka hari, misal: <b>30</b>)\n\n<i>Ketik /cancel untuk membatalkan</i>"
-                                ;;
-                            CREATE_HARI)
-                                if [[ "$TEXT" =~ ^[0-9]+$ ]]; then
-                                    echo "HARI=$TEXT" >> "/etc/wibutunnel/tmp/data_${SENDER_ID}"
-                                    echo "CREATE_IP" > "/etc/wibutunnel/tmp/state_${SENDER_ID}"
-                                    send_msg "✅ Durasi: <code>$TEXT Hari</code>\n\n➡️ <b>Berapa Limit IP-nya?</b>\n(Ketik angka, 0 untuk bebas, misal: <b>2</b>)\n\n<i>Ketik /cancel untuk membatalkan</i>"
-                                else
-                                    send_msg "⚠️ <b>Error:</b> Harap ketik <b>angka</b> untuk durasi hari!"
-                                fi
-                                ;;
-                            CREATE_IP)
-                                if [[ "$TEXT" =~ ^[0-9]+$ ]]; then
-                                    echo "IP=$TEXT" >> "/etc/wibutunnel/tmp/data_${SENDER_ID}"
-                                    echo "CREATE_GB" > "/etc/wibutunnel/tmp/state_${SENDER_ID}"
-                                    send_msg "✅ Limit IP: <code>$TEXT</code>\n\n➡️ <b>Berapa Limit Kuota GB-nya?</b>\n(Ketik angka, 0 untuk unli, misal: <b>50</b>)\n\n<i>Ketik /cancel untuk membatalkan</i>"
-                                else
-                                    send_msg "⚠️ <b>Error:</b> Harap ketik <b>angka</b> untuk limit IP!"
-                                fi
-                                ;;
-                            CREATE_GB)
-                                if [[ "$TEXT" =~ ^[0-9]+$ ]]; then
-                                    source "/etc/wibutunnel/tmp/data_${SENDER_ID}"
-                                    GB=$TEXT
-                                    rm -f "/etc/wibutunnel/tmp/state_${SENDER_ID}" "/etc/wibutunnel/tmp/data_${SENDER_ID}"
-                                    send_msg "⏳ <b>Sedang membuat akun $PROTO, mohon tunggu...</b>"
-                                    create_account "$PROTO" "$USER" "$HARI" "$IP" "$GB"
-                                else
-                                    send_msg "⚠️ <b>Error:</b> Harap ketik <b>angka</b> untuk limit kuota GB!"
-                                fi
-                                ;;
-                            MANAGE_USER)
-                                source "/etc/wibutunnel/tmp/data_${SENDER_ID}"
-                                USER="$TEXT"
-                                if [[ "$ACTION" == "RENEW" ]]; then
-                                    echo "USER=$USER" >> "/etc/wibutunnel/tmp/data_${SENDER_ID}"
-                                    echo "MANAGE_HARI" > "/etc/wibutunnel/tmp/state_${SENDER_ID}"
-                                    send_msg "✅ Username: <code>$USER</code>\n\n➡️ <b>Berapa hari perpanjangannya?</b>\n(Ketik angka, misal: <b>30</b>)\n\n<i>Ketik /cancel untuk membatalkan</i>"
-                                else
-                                    rm -f "/etc/wibutunnel/tmp/state_${SENDER_ID}" "/etc/wibutunnel/tmp/data_${SENDER_ID}"
-                                    if [[ "$ACTION" == "DEL" ]]; then delete_account "$USER"
-                                    elif [[ "$ACTION" == "CEK" ]]; then detail_account "$USER"
-                                    elif [[ "$ACTION" == "LOCK" ]]; then
-                                        /usr/local/bin/lock-user "$USER" 0 "MANUAL_LOCK" "UNKNOWN" "N/A" "N/A"
-                                        send_msg "✅ Akun <code>$USER</code> telah dikunci (Locked)."
-                                    elif [[ "$ACTION" == "UNLOCK" ]]; then
-                                        /usr/local/bin/unlock-user "$USER"
-                                        send_msg "✅ Akun <code>$USER</code> telah dibuka (Unlocked)."
-                                    fi
-                                fi
-                                ;;
-                            MANAGE_HARI)
-                                if [[ "$TEXT" =~ ^[0-9]+$ ]]; then
-                                    source "/etc/wibutunnel/tmp/data_${SENDER_ID}"
-                                    HARI=$TEXT
-                                    rm -f "/etc/wibutunnel/tmp/state_${SENDER_ID}" "/etc/wibutunnel/tmp/data_${SENDER_ID}"
-                                    renew_account "$USER" "$HARI"
-                                else
-                                    send_msg "⚠️ <b>Error:</b> Harap ketik <b>angka</b> untuk jumlah hari!"
-                                fi
-                                ;;
-                        esac
-                        # Update offset and skip normal command processing
-                        OFFSET=$((UPDATE_ID + 1))
-                        echo "$OFFSET" > "$OFFSET_FILE"
-                        continue
-                    fi
-                fi
-
-                if is_admin "$SENDER_ID"; then
+                    curl -s "https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery?callback_query_id=${CB_ID}" >/dev/null                if is_admin "$SENDER_ID"; then
                         case "$DATA" in
                             cmd_list) list_account ;;
                             cmd_trafik) TEXT="/cek_trafik"; CMD="/cek_trafik" ;; # Trigger text parsing below or call directly
