@@ -673,10 +673,9 @@ while true; do
                                 continue
                             fi
                             
-                            # [MATA ELANG - NEW LOGIC] Cek koneksi ESTABLISHED + Mapping IP-Email
-                            awk '/accepted/ {ip=$3; sub(/:[0-9]+$/, "", ip); email=$NF; gsub(/[^a-zA-Z0-9_-]/, "", email); if(email != "dummy" && email != "api" && ip != "127.0.0.1") map[ip]=email} END {for(ip in map) print ip, map[ip]}' <(tail -n 50000 "$LOG_FILE" 2>/dev/null) > /etc/wibutunnel/tmp/ip_map.txt 2>/dev/null
-                            ss -ntp | awk 'NR>1 && $1=="ESTAB" {print $5}' | sed 's/:[^:]*$//' | sort -u > /etc/wibutunnel/tmp/active_ips.txt 2>/dev/null
-                            LOGIN_DATA=$(awk 'NR==FNR{map[$1]=$2; next} {if($1 in map){email=map[$1]; if(ips[email]=="") ips[email]=$1; else ips[email]=ips[email]", "$1; counts[email]++}} END {for(e in ips) print e "|" counts[e] "|" ips[e]}' /etc/wibutunnel/tmp/ip_map.txt /etc/wibutunnel/tmp/active_ips.txt)
+                            # [MATA ELANG V2 - NEW LOGIC] Deteksi real IP via Log 3 Menit (Support Cloudflare/CDN)
+                            THRESH=$(date -d '3 minutes ago' +'%Y/%m/%d %H:%M:%S')
+                            LOGIN_DATA=$(awk -v thresh="$THRESH" '$1" "$2 >= thresh && /accepted/ { ip=$3; sub(/:.*/, "", ip); email=$NF; gsub(/[^a-zA-Z0-9_-]/, "", email); if(email != "dummy" && email != "api" && ip != "127.0.0.1") { if (!seen[email, ip]++) { ips[email] = (ips[email] ? ips[email]", " : "") ip; counts[email]++ } } } END { for (e in ips) print e "|" counts[e] "|" ips[e] }' <(tail -n 50000 "$LOG_FILE" 2>/dev/null) 2>/dev/null)
 
                             if [[ -z "$LOGIN_DATA" ]]; then
                                 send_msg "🟢 <b>ONLINE USERS (LIVE)</b>\n━━━━━━━━━━━━━━━━━━━━\n<i>Saat ini tidak ada user yang aktif.</i>\n━━━━━━━━━━━━━━━━━━━━"
@@ -764,10 +763,9 @@ while true; do
                             elif [[ "$DATA" == "cmd_login" ]]; then
                                 LOG_FILE="/var/log/xray/access.log"
                                 if [[ ! -s "$LOG_FILE" ]]; then send_msg "❌ <b>Belum ada data log aktif (kosong).</b>"; else
-                                    # [MATA ELANG - NEW LOGIC] Cek koneksi ESTABLISHED + Mapping IP-Email
-                                    awk '/accepted/ {ip=$3; sub(/:[0-9]+$/, "", ip); email=$NF; gsub(/[^a-zA-Z0-9_-]/, "", email); if(email != "dummy" && email != "api" && ip != "127.0.0.1") map[ip]=email} END {for(ip in map) print ip, map[ip]}' <(tail -n 50000 "$LOG_FILE" 2>/dev/null) > /etc/wibutunnel/tmp/ip_map.txt 2>/dev/null
-                                    ss -ntp | awk 'NR>1 && $1=="ESTAB" {print $5}' | sed 's/:[^:]*$//' | sort -u > /etc/wibutunnel/tmp/active_ips.txt 2>/dev/null
-                                    LOGIN_DATA=$(awk 'NR==FNR{map[$1]=$2; next} {if($1 in map){email=map[$1]; if(ips[email]=="") ips[email]=$1; else ips[email]=ips[email]", "$1; counts[email]++}} END {for(e in ips) print e "|" counts[e] "|" ips[e]}' /etc/wibutunnel/tmp/ip_map.txt /etc/wibutunnel/tmp/active_ips.txt)
+                                    # [MATA ELANG V2 - NEW LOGIC] Deteksi real IP via Log 3 Menit (Support Cloudflare/CDN)
+                                    THRESH=$(date -d '3 minutes ago' +'%Y/%m/%d %H:%M:%S')
+                                    LOGIN_DATA=$(awk -v thresh="$THRESH" '$1" "$2 >= thresh && /accepted/ { ip=$3; sub(/:.*/, "", ip); email=$NF; gsub(/[^a-zA-Z0-9_-]/, "", email); if(email != "dummy" && email != "api" && ip != "127.0.0.1") { if (!seen[email, ip]++) { ips[email] = (ips[email] ? ips[email]", " : "") ip; counts[email]++ } } } END { for (e in ips) print e "|" counts[e] "|" ips[e] }' <(tail -n 50000 "$LOG_FILE" 2>/dev/null) 2>/dev/null)
                                     if [[ -z "$LOGIN_DATA" ]]; then send_msg "🟢 <b>ONLINE USERS (LIVE)</b>\n━━━━━━━━━━━━━━━━━━━━\n<i>Saat ini tidak ada user yang aktif.</i>\n━━━━━━━━━━━━━━━━━━━━"; else
                                         LOG_MSG="🟢 <b>ONLINE USERS (LIVE)</b>\n━━━━━━━━━━━━━━━━━━━━\n"
                                         while IFS="|" read -r usr count iplist; do

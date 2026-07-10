@@ -59,19 +59,14 @@ for conf in /etc/xray/vless_exp.conf /etc/xray/vmess_exp.conf /etc/xray/trojan_e
     done < "$conf"
 done
 
-awk '/accepted/ {ip=$3; sub(/:[0-9]+$/, "", ip); email=$NF; gsub(/[^a-zA-Z0-9_-]/, "", email); if(email != "dummy" && email != "api" && ip != "127.0.0.1") map[ip]=email} END {for(ip in map) print ip, map[ip]}' <(tail -n 50000 /var/log/xray/access.log 2>/dev/null) > /etc/wibutunnel/tmp/ip_map.txt 2>/dev/null
-ss -ntp | awk 'NR>1 && $1=="ESTAB" {print $5}' | sed 's/:[^:]*$//' | sort -u > /etc/wibutunnel/tmp/active_ips.txt 2>/dev/null
-
+# [MATA ELANG V2 - NEW LOGIC] Deteksi real IP via Log 3 Menit (Support Cloudflare/CDN)
 declare -A USER_IPS
-while read -r active_ip; do
-    if [[ -z "$active_ip" ]]; then continue; fi
-    email=$(awk -v ip="$active_ip" '$1==ip {print $2}' /etc/wibutunnel/tmp/ip_map.txt | tail -n 1)
+THRESH=$(date -d '3 minutes ago' +'%Y/%m/%d %H:%M:%S')
+while IFS="|" read -r email count iplist; do
     if [[ -n "$email" ]]; then
-        if [[ ! "${USER_IPS[$email]}" =~ "$active_ip" ]]; then 
-            USER_IPS[$email]+="$active_ip "
-        fi
+        USER_IPS["$email"]="$iplist"
     fi
-done < /etc/wibutunnel/tmp/active_ips.txt
+done < <(awk -v thresh="$THRESH" '$1" "$2 >= thresh && /accepted/ { ip=$3; sub(/:.*/, "", ip); email=$NF; gsub(/[^a-zA-Z0-9_-]/, "", email); if(email != "dummy" && email != "api" && ip != "127.0.0.1") { if (!seen[email, ip]++) { ips[email] = (ips[email] ? ips[email]" " : "") ip; counts[email]++ } } } END { for (e in ips) print e "|" counts[e] "|" ips[e] }' <(tail -n 50000 /var/log/xray/access.log 2>/dev/null) 2>/dev/null)
 
 declare -A ALL_USERS
 while read -r line; do
