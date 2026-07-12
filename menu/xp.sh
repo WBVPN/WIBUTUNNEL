@@ -140,3 +140,12 @@ if [[ ${#TRIAL_TO_DELETE[@]} -gt 0 || ${#NORMAL_TO_RECOVERY[@]} -gt 0 ]]; then
     
     systemctl restart xray >/dev/null 2>&1
 fi
+
+# ==========================================
+# AUTO TRUNCATE LOGS (PREVENT DISK FULL)
+# ==========================================
+LOG_SIZE=$(stat -c%s "/var/log/xray/access.log" 2>/dev/null || echo 0)
+if [[ $LOG_SIZE -gt 52428800 ]]; then # 50MB
+    > /var/log/xray/access.log
+    > /var/log/xray/error.log
+fi

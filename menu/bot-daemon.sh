@@ -556,7 +556,7 @@ while true; do
                             kb+='[{"text":"➕ Create Account","callback_data":"cmd_create"},{"text":"⚙️ Kelola Akun","callback_data":"cmd_manage"}],'
                             kb+='[{"text":"📋 List Akun","callback_data":"cmd_list"},{"text":"📊 Cek Trafik","callback_data":"cmd_trafik"}],'
                             kb+='[{"text":"🟢 Cek Login","callback_data":"cmd_login"},{"text":"💻 Info VPS","callback_data":"cmd_info"}],'
-                            kb+='[{"text":"📦 Backup","callback_data":"cmd_backup"}]'
+                            kb+='[{"text":"📦 Backup","callback_data":"cmd_backup"},{"text":"🏆 Top Member","callback_data":"cmd_topmember"}]'
                             kb+=']}'
                             
                             send_msg "$MSG" "$kb"
@@ -737,6 +737,7 @@ while true; do
                             cmd_login) TEXT="/cek_login"; CMD="/cek_login" ;;
                             cmd_info) TEXT="/info"; CMD="/info" ;;
                             cmd_backup) backup_vps ;;
+                            cmd_topmember) TEXT="/topmember"; CMD="/topmember" ;;
                             cmd_create)
                                 msg_create="✨ <b>Cara Membuat Akun:</b>\nKetik perintah berikut di chat:\n\n"
                                 msg_create+="<code>/vless [nama] [hari] [ip] [gb]</code>\n"
