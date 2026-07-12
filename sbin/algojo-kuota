@@ -31,6 +31,7 @@ END {
 }' /etc/wibutunnel/tmp/xray_quota_raw.txt FS=":" OFS=":" "$DB_USAGE" > /etc/wibutunnel/tmp/db_usage.tmp && mv /etc/wibutunnel/tmp/db_usage.tmp "$DB_USAGE"
 
 
+USERS_TO_LOCK=()
 while read -r line; do
     user=$(echo "$line" | cut -d: -f1)
     limit_gb=$(echo "$line" | cut -d: -f2)
@@ -47,9 +48,30 @@ while read -r line; do
             elif grep -q "^${user}:" /etc/xray/vmess_exp.conf 2>/dev/null; then proto="VMESS"
             elif grep -q "^${user}:" /etc/xray/trojan_exp.conf 2>/dev/null; then proto="TROJAN"; fi
             
-            # Durasi 0 = Mengunci permanen dan memindahkan ke Recovery Center
-            /usr/local/bin/lock-user "$user" "0" "QUOTA" "$proto" "${limit_gb}GB" "${usage_gb}GB" >/dev/null 2>&1
+            # Lock database
+            now=$(date +%s)
+            echo "${user}:${now}:0:QUOTA" >> "$DB_LOCK"
+            
+            USERS_TO_LOCK+=("$user")
+            
+            # Async Telegram Notification
+            (
+                DOMAIN=$(cat /etc/xray/domain 2>/dev/null || echo "Unknown")
+                WAKTU=$(date '+%d %b %Y %H:%M WIB')
+                PESAN="🔒 <b>USER DIKUNCI OTOMATIS</b>\n\n<b>User     :</b> <code>${user}</code>\n<b>Alasan   :</b> Kuota Habis\n<b>Durasi   :</b> Permanen (sampai di-unlock manual)\n<b>Waktu    :</b> ${WAKTU}\n<b>Domain   :</b> <code>${DOMAIN}</code>\n\n<i>Account akan otomatis dibuka jika dilonggarkan limitnya.</i>"
+                curl -s --max-time 10 -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" -F "chat_id=${CHAT_ID}" -F "disable_web_page_preview=true" -F "parse_mode=html" -F "text=${PESAN}" >/dev/null 2>&1
+            ) &
         fi
     fi
 done < "$DB_BW"
 rm -f /etc/wibutunnel/tmp/xray_quota_raw.txt
+
+if [[ ${#USERS_TO_LOCK[@]} -gt 0 ]]; then
+    # BATCH LOCK IN XRAY (1 JQ CALL)
+    jq_args=()
+    for usr in "${USERS_TO_LOCK[@]}"; do
+        jq_args+=("$usr")
+    done
+    jq --argjson users "$(printf '%s\n' "${jq_args[@]}" | jq -R . | jq -s .)" '(.routing.rules[] | select(.outboundTag == "blocked" and .user != null) | .user) |= (. + $users | unique)' /usr/local/etc/xray/config.json > /tmp/xray.json && mv /tmp/xray.json /usr/local/etc/xray/config.json
+    systemctl restart xray >/dev/null 2>&1
+fi
