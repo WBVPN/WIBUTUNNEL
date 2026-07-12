@@ -141,12 +141,16 @@ case $sub_setting in
         echo -e "$LINE"
         
         # Vnstat output
-        VNSTAT_OUT=$(vnstat -m -i "$MAIN_IFACE" 2>&1)
+        VNSTAT_OUT=$(vnstat -d -i "$MAIN_IFACE" 2>&1)
         if echo "$VNSTAT_OUT" | grep -q "Not enough data"; then
             echo -e " ${YELLOW}Catatan:${NC} Vnstat sedang merekam data."
             echo -e " Tunggu 5-10 menit untuk melihat log harian/bulanan."
         else
-            echo "$VNSTAT_OUT" | head -n 12
+            echo -e " ${CYAN}DATA HARIAN (DAILY)${NC}"
+            vnstat -d -i "$MAIN_IFACE" | grep -v "$MAIN_IFACE" | grep -v "^$" | head -n 8
+            echo -e ""
+            echo -e " ${CYAN}DATA BULANAN (MONTHLY)${NC}"
+            vnstat -m -i "$MAIN_IFACE" | grep -v "$MAIN_IFACE" | grep -v "^$" | head -n 8
         fi
         echo -e "$LINE"
         read -n 1 -s -r -p "Tekan tombol apa saja..."
