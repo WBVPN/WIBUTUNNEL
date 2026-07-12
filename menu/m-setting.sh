@@ -165,6 +165,7 @@ case $sub_setting in
         safe_update "menu/m-backup.sh"
         safe_update "menu/menu-lock.sh"
         safe_update "menu/menu-unlock.sh"
+        safe_update "menu/menu-recovery.sh"
         safe_update "menu/cek-trafik.sh"
         safe_update "menu/bot-daemon.sh"
         
