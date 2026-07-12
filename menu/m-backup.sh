@@ -135,17 +135,15 @@ do_backup() {
     if echo "$RESPONSE" | jq -e '.ok' >/dev/null 2>&1; then
         echo -e "${GREEN}[+] Backup berhasil dikirim ke Telegram!${NC}"
         FILE_ID=$(echo "$RESPONSE" | jq -r '.result.document.file_id // empty')
-        if [[ -n "$FILE_ID" ]]; then
-            curl -s --max-time 15 -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
+        MSG_ID=$(echo "$RESPONSE" | jq -r '.result.message_id // empty')
+        
+        if [[ -n "$FILE_ID" && -n "$MSG_ID" ]]; then
+            NEW_CAPTION=$(echo -e "📦 <b>Backup Wibutunnel VPS</b>\n🗓 Tanggal: <code>${TGL}</code>\n\n🔑 <b>DATA RESTORE:</b>\n<code>${FILE_ID}</code>\n\n🔐 <b>Password:</b> CHAT ID Anda")
+            curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/editMessageCaption" \
                 -F "chat_id=${CHAT_ID}" \
-                -F "parse_mode=HTML" \
-                -F "disable_web_page_preview=true" \
-                -F "text=
-🔑 DATA RESTORE:
-
-<code>${FILE_ID}</code>
-
-🔐 Password: CHAT ID Anda" >/dev/null
+                -F "message_id=${MSG_ID}" \
+                -F "caption=${NEW_CAPTION}" \
+                -F "parse_mode=html" >/dev/null
         fi
     else
         echo -e "${RED}[!] Gagal mengirim ke Telegram. Cek koneksi atau konfigurasi Bot.${NC}"
