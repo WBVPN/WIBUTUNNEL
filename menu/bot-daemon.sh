@@ -30,6 +30,42 @@ send_msg() {
     fi
 }
 
+format_online_users() {
+    local raw_data="$1"
+    local MSG="🟢 <b>ONLINE USERS (LIVE)</b>
+━━━━━━━━━━━━━━━━━━━━
+"
+    while IFS="|" read -r usr count iplist; do
+        local proto=""
+        if grep -q "^${usr}:" /etc/xray/vless_exp.conf 2>/dev/null; then proto="VLESS"
+        elif grep -q "^${usr}:" /etc/xray/vmess_exp.conf 2>/dev/null; then proto="VMESS"
+        elif grep -q "^${usr}:" /etc/xray/trojan_exp.conf 2>/dev/null; then proto="TROJAN"
+        else continue; fi
+        
+        IFS=',' read -ra ip_arr <<< "$iplist"
+        local ip_limit=3
+        local formatted_ips=""
+        for ((i=0; i<${#ip_arr[@]} && i<ip_limit; i++)); do
+            local clean_ip=$(echo "${ip_arr[$i]}" | tr -d ' ')
+            formatted_ips+="    • <code>${clean_ip}</code>
+"
+        done
+        if [[ ${#ip_arr[@]} -gt $ip_limit ]]; then
+            local sisa=$((${#ip_arr[@]} - ip_limit))
+            formatted_ips+="    <i>... (+ ${sisa} IP lainnya)</i>
+"
+        fi
+        
+        MSG+="👤 <b>${usr}</b> [<code>${proto}</code>]
+ ├ 🌐 <b>Status:</b> ${count} Login Aktif
+ └ 📡 <b>IP Address:</b>
+${formatted_ips}
+"
+    done <<< "$raw_data"
+    MSG+="━━━━━━━━━━━━━━━━━━━━"
+    echo "$MSG"
+}
+
 create_account() {
     local proto=$1
     local user=$2
@@ -680,16 +716,7 @@ while true; do
                             if [[ -z "$LOGIN_DATA" ]]; then
                                 send_msg "🟢 <b>ONLINE USERS (LIVE)</b>\n━━━━━━━━━━━━━━━━━━━━\n<i>Saat ini tidak ada user yang aktif.</i>\n━━━━━━━━━━━━━━━━━━━━"
                             else
-                                LOG_MSG="🟢 <b>ONLINE USERS (LIVE)</b>\n━━━━━━━━━━━━━━━━━━━━\n"
-                                while IFS="|" read -r usr count iplist; do
-                                    if grep -q "^${usr}:" /etc/xray/vless_exp.conf 2>/dev/null; then proto="VLESS"
-                                    elif grep -q "^${usr}:" /etc/xray/vmess_exp.conf 2>/dev/null; then proto="VMESS"
-                                    elif grep -q "^${usr}:" /etc/xray/trojan_exp.conf 2>/dev/null; then proto="TROJAN"
-                                    else continue
-                                    fi
-                                    LOG_MSG+="👤 <code>${usr}</code> [${proto}]\n└ 🌐 IP: ${iplist} (${count} Login)\n\n"
-                                done <<< "$LOGIN_DATA"
-                                LOG_MSG+="━━━━━━━━━━━━━━━━━━━━"
+                                LOG_MSG=$(format_online_users "$LOGIN_DATA")
                                 send_msg "$LOG_MSG"
                             fi
                             ;;
@@ -767,12 +794,7 @@ while true; do
                                     THRESH=$(date -d '3 minutes ago' +'%Y/%m/%d %H:%M:%S')
                                     LOGIN_DATA=$(awk -v thresh="$THRESH" '$1" "$2 >= thresh && /accepted/ { for(i=1;i<=NF;i++){ if($i=="accepted"){ ip=$(i-1); sub(/^(tcp|udp):/, "", ip); sub(/:[0-9]+$/, "", ip); break } }; email=$NF; gsub(/[^a-zA-Z0-9_-]/, "", email); if(email != "dummy" && email != "api" && ip != "127.0.0.1" && ip != "") { if (!seen[email, ip]++) { ips[email] = (ips[email] ? ips[email]", " : "") ip; counts[email]++ } } } END { for (e in ips) print e "|" counts[e] "|" ips[e] }' <(tail -n 50000 "$LOG_FILE" 2>/dev/null) 2>/dev/null)
                                     if [[ -z "$LOGIN_DATA" ]]; then send_msg "🟢 <b>ONLINE USERS (LIVE)</b>\n━━━━━━━━━━━━━━━━━━━━\n<i>Saat ini tidak ada user yang aktif.</i>\n━━━━━━━━━━━━━━━━━━━━"; else
-                                        LOG_MSG="🟢 <b>ONLINE USERS (LIVE)</b>\n━━━━━━━━━━━━━━━━━━━━\n"
-                                        while IFS="|" read -r usr count iplist; do
-                                            if grep -q "^${usr}:" /etc/xray/vless_exp.conf 2>/dev/null; then proto="VLESS"; elif grep -q "^${usr}:" /etc/xray/vmess_exp.conf 2>/dev/null; then proto="VMESS"; elif grep -q "^${usr}:" /etc/xray/trojan_exp.conf 2>/dev/null; then proto="TROJAN"; else continue; fi
-                                            LOG_MSG+="👤 <code>${usr}</code> [${proto}]\n└ 🌐 IP: ${iplist} (${count} Login)\n\n"
-                                        done <<< "$LOGIN_DATA"
-                                        LOG_MSG+="━━━━━━━━━━━━━━━━━━━━"
+                                        LOG_MSG=$(format_online_users "$LOGIN_DATA")
                                         send_msg "$LOG_MSG"
                                     fi
                                 fi
