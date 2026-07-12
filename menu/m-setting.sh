@@ -31,23 +31,19 @@ CEK_BACKUP=$(crontab -l 2>/dev/null | awk '!/^#/ && /m-backup auto/ {printf "%02
 STATUS_BACKUP=$([[ -z "$CEK_BACKUP" ]] && echo "${RED}Belum disetting${NC}" || echo "${GREEN}Tersetting pada ${CEK_BACKUP} WIB${NC}")
 
 safe_update() {
-    local file_name="$1"
-    local raw_url target_name
-    target_name="${file_name%.sh}"
-    if [[ "$file_name" == "common.sh" ]]; then
-        raw_url="https://raw.githubusercontent.com/WBVPN/wibutunnel/main/common.sh?$(date +%s)"
-        target_name="common.sh"
-    else
-        raw_url="https://raw.githubusercontent.com/WBVPN/wibutunnel/main/menu/${file_name}?$(date +%s)"
-    fi
+    local repo_path="$1"
+    local base_name=$(basename "$repo_path")
+    local target_name="${base_name%.sh}"
     
-    wget -q -O "/etc/wibutunnel/tmp/${file_name}" "$raw_url" 2>/dev/null
-    if [[ -s "/etc/wibutunnel/tmp/${file_name}" ]]; then
-        mv "/etc/wibutunnel/tmp/${file_name}" "/usr/local/bin/${target_name}"
+    local raw_url="https://raw.githubusercontent.com/WBVPN/WIBUTUNNEL/main/${repo_path}?$(date +%s)"
+    
+    wget -q -O "/etc/wibutunnel/tmp/${base_name}" "$raw_url" 2>/dev/null
+    if [[ -s "/etc/wibutunnel/tmp/${base_name}" ]]; then
+        mv "/etc/wibutunnel/tmp/${base_name}" "/usr/local/bin/${target_name}"
         chmod +x "/usr/local/bin/${target_name}"
         echo -e "${GREEN}√ Berhasil memperbarui ${target_name}${NC}"
     else
-        echo -e "${RED}× Gagal mengunduh ${file_name} (Sistem dilindungi dari file kosong)${NC}"
+        echo -e "${RED}× Gagal mengunduh ${base_name} (Sistem dilindungi dari file kosong)${NC}"
     fi
 }
 
@@ -160,19 +156,28 @@ case $sub_setting in
         clear; echo -e "$LINE"; echo -e "         ${WHITE}UPDATE SCRIPT (SAFE MODE)${NC}"; echo -e "$LINE"
         echo -e "${YELLOW}Mengecek dan mengunduh pembaruan...${NC}"
         
-        safe_update "menu.sh"
-        safe_update "m-vless.sh"
-        safe_update "m-vmess.sh"
-        safe_update "m-trojan.sh"
-        safe_update "m-setting.sh"
-        safe_update "xp.sh"
-        safe_update "m-backup.sh"
-        safe_update "menu-lock.sh"
-        safe_update "menu-unlock.sh"
-        safe_update "cek-trafik.sh"
+        safe_update "menu/menu.sh"
+        safe_update "menu/m-vless.sh"
+        safe_update "menu/m-vmess.sh"
+        safe_update "menu/m-trojan.sh"
+        safe_update "menu/m-setting.sh"
+        safe_update "menu/xp.sh"
+        safe_update "menu/m-backup.sh"
+        safe_update "menu/menu-lock.sh"
+        safe_update "menu/menu-unlock.sh"
+        safe_update "menu/cek-trafik.sh"
+        safe_update "menu/bot-daemon.sh"
+        
+        safe_update "sbin/algojo-kuota"
+        safe_update "sbin/algojo-wibu"
+        safe_update "sbin/lock-user"
+        safe_update "sbin/unlock-user"
+        safe_update "sbin/unlocker-wibu"
+        
         safe_update "common.sh"
         
         dos2unix /usr/local/bin/* >/dev/null 2>&1
+        systemctl restart wibutunnel-bot >/dev/null 2>&1
         echo -e "\n${GREEN}Update Selesai! Semua menu sudah versi terbaru.${NC}"
         read -n 1 -s -r -p "Tekan tombol apa saja..."
         exec m-setting
