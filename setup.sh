@@ -420,13 +420,13 @@ GITHUB_RAW="https://raw.githubusercontent.com/${GITHUB_USER}/${REPO_NAME}/main"
 download_menu() {
     local url="${GITHUB_RAW}/$1?v=$RANDOM"
     local dest="/usr/local/bin/$2"
-    wget -q -O "/etc/wibutunnel/tmp/$2" "$url"
+    wget -T 5 -q -O "/etc/wibutunnel/tmp/$2" "$url"
+    local dl_status=$?
     
-    # Validasi apakah file yang diunduh adalah bash script (bukan HTML 429 Error)
-    if grep -q "429: Too Many Requests" "/etc/wibutunnel/tmp/$2"; then
-        echo -e "\e[31m[!] Terkena Rate Limit GitHub saat mengunduh $2. Mencoba mirror lain...\e[0m"
+    # Validasi apakah gagal download (timeout) atau kena HTML 429 Error
+    if [ $dl_status -ne 0 ] || grep -q "429: Too Many Requests" "/etc/wibutunnel/tmp/$2"; then
         url="https://cdn.jsdelivr.net/gh/${GITHUB_USER}/${REPO_NAME}@main/$1"
-        wget -q -O "/etc/wibutunnel/tmp/$2" "$url"
+        wget -T 5 -q -O "/etc/wibutunnel/tmp/$2" "$url"
     fi
     
     if [ -s "/etc/wibutunnel/tmp/$2" ]; then
