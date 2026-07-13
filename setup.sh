@@ -293,7 +293,7 @@ fi
 cat /etc/letsencrypt/live/"$domain"/fullchain.pem /etc/letsencrypt/live/"$domain"/privkey.pem > /etc/haproxy/certs/"$domain".pem
 
 # XRAY CORE
-wget -qO- https://raw.githubusercontent.com/XTLS/Xray-install/main/install-release.sh | bash -s -- install
+wget -T 10 -qO- https://cdn.jsdelivr.net/gh/XTLS/Xray-install@main/install-release.sh | bash -s -- install
 
 # Backup config lama
 [ -f /usr/local/etc/xray/config.json ] && cp /usr/local/etc/xray/config.json "/usr/local/etc/xray/config.json.bak.$(date +%F_%H%M%S)"
