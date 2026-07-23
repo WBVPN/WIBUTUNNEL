@@ -1,72 +1,114 @@
-# WIBU TUNNELING v4.0 KURUMI (FINAL PERFECT) 🦋
+<div align="center">
 
-**Ultimate Xray VPN Auto Script** dengan arsitektur paling ringan dan mutakhir. Dibangun khusus untuk memberikan performa maksimal pada VPS dengan perlindungan keamanan, manajemen memori tingkat lanjut, dan sistem limit otomatis (Algojo).
+# 🦋 WIBU TUNNELING v4.0 KURUMI (FINAL PERFECT)
+
+**The Ultimate Xray VPN Auto Script**  
+*Arsitektur Paling Ringan, Aman, dan Mutakhir untuk VPS Anda.*
+
+[![Bash](https://img.shields.io/badge/Language-Bash-4EAA25?style=for-the-badge&logo=gnu-bash&logoColor=white)](#)
+[![Xray-core](https://img.shields.io/badge/Core-Xray_1.8.x-blue?style=for-the-badge)](#)
+[![OS](https://img.shields.io/badge/OS-Ubuntu%20%7C%20Debian-E95420?style=for-the-badge&logo=ubuntu&logoColor=white)](#)
+[![Security](https://img.shields.io/badge/Security-Enterprise_Grade-red?style=for-the-badge&logo=shield&logoColor=white)](#)
+
+</div>
+
+---
+
+## 🌟 Apa Itu Wibu Tunneling?
+
+**Wibu Tunneling** adalah *Auto Script* premium yang diciptakan khusus untuk membangun server VPN berkinerja ekstrim. Dirombak ulang pada versi 4.0 dengan perlindungan keamanan tingkat tinggi (Enterprise-Grade Security), manajemen memori *(RAM Disk Logging)* yang inovatif, serta sistem pemblokiran otomatis (Algojo) super cepat.
 
 ---
 
 ## ✨ Fitur Unggulan (What's New in v4.0)
 
-🚀 **100% Zero Disk I/O (RAM Disk Logging)**
-Tidak ada lagi HDD/SSD yang rusak! Seluruh aktivitas *log* koneksi Xray kini diproses murni di atas awan (RAM / `tmpfs`), menjadikan VPS **Super Snappy** dan kebal terhadap antrean baca-tulis (I/O Wait).
+<details>
+<summary><b>🔥 Klik untuk melihat daftar fitur utama!</b></summary>
 
-🧠 **Otak Algojo Generasi Baru (Awk Engine)**
-Script pengawas Limit IP (Multi-Login) kini beroperasi menggunakan `awk` tingkat rendah. Kecepatannya membedah ribuan *log* dalam **1 milidetik** tanpa membebani CPU, serta akurat memblokir akun meski menggunakan nama tanpa simbol `@`.
+### 1. 🚀 100% Zero Disk I/O (RAM Disk Logging)
+Selamat tinggal `I/O Wait` dan SSD cepat aus! Seluruh aktivitas *log* koneksi Xray diproses sepenuhnya secara virtual di atas RAM (`tmpfs`), menjadikan respon VPS super kilat.
 
-🛡️ **Anti URL-Encoding (100% Koneksi Sukses)**
-Frontend HAProxy kini kebal terhadap eror akibat *copy-paste* link klien (seperti spasi atau karakter `%2F`). Apapun linknya, routing akan selalu sampai ke *backend* tanpa error 503.
+### 2. 🧠 Otak Algojo Generasi Baru (Awk Engine)
+Skrip pengawas *Limit IP* dan Kuota beroperasi menggunakan modul `awk` tingkat rendah. Dapat membedah puluhan ribu *log* dalam **1 milidetik** tanpa mengonsumsi CPU sama sekali. Akurasi pemblokiran terjamin!
 
-🔄 **Sistem Recovery Cerdas**
-Klien yang limit atau expired **TIDAK AKAN DIHAPUS**. Mereka otomatis dimasukkan ke "Ruang Recovery" (Akses Diblokir). Saat klien memperpanjang sewa, fitur **Unlock** memungkinkan klien langsung konek tanpa perlu repot ganti link di aplikasinya!
+### 3. 🛡️ Keamanan & Stabilitas Tingkat Dewa (NEW PATCH!)
+- **Anti-Command Injection:** Seluruh manipulasi data Xray kini menggunakan fungsi *safe-guard* JSON (mengamankan VPS dari input *user* berbahaya).
+- **Anti-Race Condition:** Penggunaan teknologi `mktemp` memastikan *config* Anda aman dari kerusakan saat banyak *user* dieksekusi secara bersamaan.
+- **Smart Fallback Download:** Pemasangan aman dari pemblokiran ISP menggunakan sistem *multi-layer routing* (GitHub Raw ➜ GHProxy ➜ JSDelivr CDN).
+- **Encrypted Backup:** File *backup* kini dilindungi secara otomatis menggunakan kunci *hash* MD5 unik.
 
-🤖 **Bot Telegram Super Admin**
-Tidak perlu repot buka aplikasi SSH/Termius! Bos bisa Create, Renew, Hapus, Lock, Cek Trafik, dan Cek Real-time Login langsung dari *chat* Telegram dengan *layout* premium nan elegan.
+### 4. 🔄 Sistem Recovery Cerdas (Lock / Unlock)
+Klien yang melebihi batas atau kedaluwarsa **TIDAK DIHAPUS**, melainkan dimasukkan ke "Ruang Isolasi" (Akses Diblokir). Saat klien memperpanjang sewa, fitur **Unlock** langsung menghubungkan mereka tanpa harus repot mengganti link di aplikasi klien.
 
-🚫 **Auto IPv6 Disabler**
-Sudah terintegrasi fitur pemusnah IPv6 di inti OS (via sysctl & GRUB). VPS yang baru diinstal dijamin **kebal dari error `apt update`** dan masalah *routing* Xray yang disebabkan oleh konflik IPv6!
+### 5. 🤖 Bot Telegram Super Admin (DRY Architecture)
+Kendalikan VPS Anda cukup dari kasur! Tersedia *layout* HTML elegan pada Telegram untuk Create, Renew, Hapus, Lock, Cek Trafik, hingga Cek *Real-time Login* (*Anti-Limit Telegram Bypass*).
 
-## 📦 Protokol yang Didukung
-- **VLESS** (WS TLS, WS Non-TLS, gRPC)
-- **VMESS** (WS TLS, WS Non-TLS, gRPC)
-- **TROJAN** (WS TLS, gRPC)
+### 6. 🚫 Auto IPv6 Disabler
+Kebal dari *error* `apt update` atau lambatnya *routing* Xray yang sering diakibatkan oleh konflik IPv6 internal Linux.
+
+</details>
+
+---
+
+## 📦 Protokol Dukungan Xray
+| Protokol | Transport | Keamanan |
+| :--- | :--- | :--- |
+| **VLESS** | WS, gRPC | TLS, Non-TLS |
+| **VMESS** | WS, gRPC | TLS, Non-TLS |
+| **TROJAN** | WS, gRPC | TLS |
 
 ---
 
 ## ⚡ Instalasi Cepat (1-Click Install)
 
-Cukup *copy-paste* perintah berikut di terminal VPS (Ubuntu/Debian) Anda yang masih **FRESH** (Baru di-Rebuild):
+Siapkan VPS **Ubuntu (20.04/22.04)** atau **Debian (10/11)** yang masih baru (Fresh Rebuild), *login* sebagai root, dan eksekusi perintah sakti ini:
 
 ```bash
 apt update -y && apt install -y curl wget && bash <(curl -s https://raw.githubusercontent.com/WBVPN/WIBUTUNNEL/main/setup.sh)
 ```
 
-## 📋 Daftar Menu
-
-| Menu Utama | Sub-Fitur |
-| :--- | :--- |
-| **Kelola VLESS** | Create, Delete, Renew, Trial, Cek Kuota |
-| **Kelola VMESS** | Create, Delete, Renew, Trial, Cek Kuota |
-| **Kelola TROJAN** | Create, Delete, Renew, Trial, Cek Kuota |
-| **Recovery Center** | Lock Akun, Unlock Akun, Hapus Permanen |
-| **Cek Trafik** | Monitor Real-Time IP dan Bandwidth |
-| **Sistem Panel** | Backup & Restore via Telegram (File ID / Path) |
-
-## 🤖 Cara Mengaktifkan Bot Telegram
-
-Setelah proses instalasi di VPS selesai, fitur Bot Telegram belum langsung menyala karena membutuhkan Token milik Anda. 
-
-1. Buka Telegram dan cari **@BotFather**, lalu buat bot baru dengan mengetik `/newbot`.
-2. Dapatkan **HTTP API Token** dari BotFather.
-3. Dapatkan **CHAT ID** Telegram Anda (bisa melalui bot @userinfobot atau @MissRose_bot).
-4. Masuk ke terminal VPS Anda, ketik `menu`.
-5. Pilih **[6] Pengaturan / Settings**, lalu pilih **Setup Bot Telegram**.
-6. Masukkan Token dan Chat ID Anda. Bot siap melayani Anda 24/7!
+> **Waktu instalasi rata-rata:** ~3 Menit!
 
 ---
 
-## 📞 Support & Kontak
+## 📋 Daftar Menu CLI
 
-- **WhatsApp** : [087757315408](https://wa.me/6287757315408)
-- **Telegram** : [t.me/wibuvpn](https://t.me/wibuvpn)
+Ketika Anda mengetik perintah `menu` di Terminal VPS, Anda akan disambut dengan UI cantik yang berisi:
 
-> **Developed by WIBU TUNNELING Team**  
-> **Versi:** v4.0 KURUMI (Juli 2026)
+1. **Kelola VLESS** *(Create, Delete, Renew, Trial, Detail)*
+2. **Kelola VMESS** *(Create, Delete, Renew, Trial, Detail)*
+3. **Kelola TROJAN** *(Create, Delete, Renew, Trial, Detail)*
+4. **Recovery Center** *(Lock Akun, Unlock Akun, Hapus Permanen)*
+5. **Monitor Trafik** *(Live Monitor IP & Top Usage Kuota)*
+6. **Sistem Panel / Settings** *(Backup, Restore, Setup Bot Telegram, Restart)*
+
+---
+
+## 🤖 Menghubungkan Bot Telegram
+
+Instalasi selesai? Bot Telegram belum menyala sebelum Anda mengaitkannya dengan akun Telegram Anda:
+
+1. Buka Telegram ➜ Cari **@BotFather** ➜ Ketik `/newbot` untuk membuat bot baru.
+2. Salin **HTTP API Token** yang diberikan oleh BotFather.
+3. Ketahui **CHAT ID** Telegram Anda (gunakan bot seperti `@userinfobot`).
+4. Buka terminal VPS, ketik `menu`.
+5. Masuk ke **[6] Pengaturan / Settings** ➜ Pilih **Setup Bot Telegram**.
+6. Tempelkan *Token* dan *Chat ID* Anda.
+7. **Selesai!** Ketik `/menu` atau `/start` di chat Bot Anda.
+
+---
+
+## 📞 Dukungan & Kontak
+
+Ada pertanyaan, butuh kustomisasi panel, atau pembelian lisensi VIP? 
+Silakan ketuk pintu kami di bawah ini:
+
+- 💬 **WhatsApp:** [087757315408](https://wa.me/6287757315408)
+- ✈️ **Telegram:** [t.me/wibuvpn](https://t.me/wibuvpn)
+
+<br/>
+
+<div align="center">
+  <b>Made with ❤️ by WIBU TUNNELING Team</b><br/>
+  <i>Versi v4.0 KURUMI (Juli 2026)</i>
+</div>
