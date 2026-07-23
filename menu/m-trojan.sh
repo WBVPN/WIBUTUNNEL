@@ -403,13 +403,13 @@ lock_unlock_user() {
     now=$(date +%s)
 
     if grep -q "^${user}:" "$DB_LOCK" 2>/dev/null; then
-        jq --arg u "$user" '(.routing.rules[] | select(.user != null and .outboundTag == "blocked") | .user) |= map(select(. != $u))' /usr/local/etc/xray/config.json > /etc/wibutunnel/tmp/xray_tmp.json && mv /etc/wibutunnel/tmp/xray_tmp.json /usr/local/etc/xray/config.json
+        xray_unlock_user "$user"
         sed -i "/^${user}:/d" "$DB_LOCK" 2>/dev/null
-                echo -e "\n${GREEN}Akun '$user' berhasil di-UNLOCK! Kini bisa login kembali.${NC}"
+        echo -e "\n${GREEN}Akun '$user' berhasil di-UNLOCK! Kini bisa login kembali.${NC}"
     else
-        jq --arg user "$user" '(.routing.rules[] | select(.user != null and .outboundTag == "blocked") | .user) |= (. + [$user] | unique)' /usr/local/etc/xray/config.json > /etc/wibutunnel/tmp/xray_tmp.json && mv /etc/wibutunnel/tmp/xray_tmp.json /usr/local/etc/xray/config.json
+        xray_lock_user "$user"
         echo "$user:$now:0:LOCK" >> "$DB_LOCK"
-                echo -e "\n${RED}Akun '$user' berhasil di-LOCK! Dipindahkan ke Recovery.${NC}"
+        echo -e "\n${RED}Akun '$user' berhasil di-LOCK! Dipindahkan ke Recovery.${NC}"
     fi
     echo ""; read -p "Tekan Enter..." dummy
 }
