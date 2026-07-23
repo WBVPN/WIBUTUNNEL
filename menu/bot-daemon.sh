@@ -4,6 +4,7 @@
 
 BOT_CONF="/etc/wibutunnel/bot.conf"
 OFFSET_FILE="/etc/wibutunnel/tmp/bot_offset"
+source /usr/local/bin/wibu-utils.sh
 CONFIG_FILE="/usr/local/etc/xray/config.json"
 
 mkdir -p /etc/wibutunnel/tmp
@@ -117,30 +118,19 @@ create_account() {
     local link3=""
     
     if [[ "$proto" == "VLESS" ]]; then
-        jq --arg uuid "$uuid" --arg user "$user" '
-            .inbounds[1].settings.clients += [{"id": $uuid, "email": $user}] |
-            .inbounds[2].settings.clients += [{"id": $uuid, "email": $user}] |
-            .inbounds[3].settings.clients += [{"id": $uuid, "email": $user}]
-        ' "$CONFIG_FILE" > /etc/wibutunnel/tmp/xtmp.json && mv /etc/wibutunnel/tmp/xtmp.json "$CONFIG_FILE"
+        xray_add_vless "$uuid" "$user"
         echo "${user}:${exp_date}" >> /etc/xray/vless_exp.conf
         link1="vless://${uuid}@${domain}:443?path=/vless&security=tls&encryption=none&host=${domain}&type=ws&sni=${domain}#${user}"
         link2="vless://${uuid}@${domain}:80?path=/vless-ntls&security=none&encryption=none&host=${domain}&type=ws#${user}"
         link3="vless://${uuid}@${domain}:443?mode=gun&security=tls&encryption=none&type=grpc&serviceName=vless&sni=${domain}#${user}"
     elif [[ "$proto" == "VMESS" ]]; then
-        jq --arg uuid "$uuid" --arg user "$user" '
-            .inbounds[4].settings.clients += [{"id": $uuid, "alterId": 0, "email": $user}] |
-            .inbounds[5].settings.clients += [{"id": $uuid, "alterId": 0, "email": $user}] |
-            .inbounds[6].settings.clients += [{"id": $uuid, "alterId": 0, "email": $user}]
-        ' "$CONFIG_FILE" > /etc/wibutunnel/tmp/xtmp.json && mv /etc/wibutunnel/tmp/xtmp.json "$CONFIG_FILE"
+        xray_add_vmess "$uuid" "$user"
         echo "${user}:${exp_date}" >> /etc/xray/vmess_exp.conf
         link1="vmess://$(echo -n "{\"v\":\"2\",\"ps\":\"$user\",\"add\":\"$domain\",\"port\":\"443\",\"id\":\"$uuid\",\"aid\":\"0\",\"net\":\"ws\",\"path\":\"/vmess\",\"type\":\"none\",\"host\":\"$domain\",\"tls\":\"tls\",\"sni\":\"$domain\"}" | base64 -w 0)"
         link2="vmess://$(echo -n "{\"v\":\"2\",\"ps\":\"$user\",\"add\":\"$domain\",\"port\":\"80\",\"id\":\"$uuid\",\"aid\":\"0\",\"net\":\"ws\",\"path\":\"/vmess-ntls\",\"type\":\"none\",\"host\":\"$domain\",\"tls\":\"\",\"sni\":\"\"}" | base64 -w 0)"
         link3="vmess://$(echo -n "{\"v\":\"2\",\"ps\":\"$user\",\"add\":\"$domain\",\"port\":\"443\",\"id\":\"$uuid\",\"aid\":\"0\",\"net\":\"grpc\",\"path\":\"vmess\",\"type\":\"none\",\"host\":\"$domain\",\"tls\":\"tls\",\"sni\":\"$domain\"}" | base64 -w 0)"
     elif [[ "$proto" == "TROJAN" ]]; then
-        jq --arg uuid "$uuid" --arg user "$user" '
-            .inbounds[7].settings.clients += [{"password": $uuid, "email": $user}] |
-            .inbounds[8].settings.clients += [{"password": $uuid, "email": $user}]
-        ' "$CONFIG_FILE" > /etc/wibutunnel/tmp/xtmp.json && mv /etc/wibutunnel/tmp/xtmp.json "$CONFIG_FILE"
+        xray_add_trojan "$uuid" "$user"
         echo "${user}:${exp_date}" >> /etc/xray/trojan_exp.conf
         link1="trojan://${uuid}@${domain}:443?path=/trojan&security=tls&host=${domain}&type=ws&sni=${domain}#${user}"
         link2="trojan://${uuid}@${domain}:443?mode=gun&security=tls&type=grpc&serviceName=trojan&sni=${domain}#${user}"
@@ -148,8 +138,7 @@ create_account() {
 
     echo "${user}:${limit_ip}" >> /etc/wibutunnel/limit_ip.db
     echo "${user}:${limit_bw}" >> /etc/wibutunnel/limit_bw.db
-    if jq empty /usr/local/etc/xray/config.json >/dev/null 2>&1; then systemctl restart xray >/dev/null 2>&1; fi
-
+    
     [[ "$limit_ip" -eq 0 ]] && limit_ip="Bebas" || limit_ip="${limit_ip} IP"
     [[ "$limit_bw" -eq 0 ]] && limit_bw="Unlimited" || limit_bw="${limit_bw} GB"
 
@@ -215,17 +204,7 @@ delete_account() {
         return
     fi
     
-    jq --arg u "$user" '
-        .inbounds[1].settings.clients |= map(select(.email != $u)) |
-        .inbounds[2].settings.clients |= map(select(.email != $u)) |
-        .inbounds[3].settings.clients |= map(select(.email != $u)) |
-        .inbounds[4].settings.clients |= map(select(.email != $u)) |
-        .inbounds[5].settings.clients |= map(select(.email != $u)) |
-        .inbounds[6].settings.clients |= map(select(.email != $u)) |
-        .inbounds[7].settings.clients |= map(select(.email != $u)) |
-        .inbounds[8].settings.clients |= map(select(.email != $u)) |
-        (.routing.rules[] | select(.user != null and .outboundTag == "blocked") | .user) |= map(select(. != $u))
-    ' "$CONFIG_FILE" > /etc/wibutunnel/tmp/xtmp.json && mv /etc/wibutunnel/tmp/xtmp.json "$CONFIG_FILE"
+    xray_del_user "$user"
 
     sed -i "/^${user}:/d" /etc/xray/vless_exp.conf
     sed -i "/^${user}:/d" /etc/xray/vmess_exp.conf
@@ -235,8 +214,7 @@ delete_account() {
     sed -i "/^${user}:/d" /etc/wibutunnel/locked_users.db 2>/dev/null
     sed -i "/^${user}:/d" /etc/wibutunnel/user_usage.db 2>/dev/null
 
-    if jq empty /usr/local/etc/xray/config.json >/dev/null 2>&1; then systemctl restart xray >/dev/null 2>&1; fi
-    send_msg "🗑️ <b>Berhasil!</b>\nAkun <code>${user}</code> telah dimusnahkan secara permanen."
+        send_msg "🗑️ <b>Berhasil!</b>\nAkun <code>${user}</code> telah dimusnahkan secara permanen."
 }
 
 is_admin() {
@@ -704,8 +682,7 @@ while true; do
                                     elif jq -e --arg u "$ARG1" '[.inbounds[].settings.clients[]?.email, .inbounds[].settings.clients[]?.password] | index($u) != null' "$CONFIG_FILE" >/dev/null 2>&1; then
                                         jq --arg user "$ARG1" '(.routing.rules[] | select(.user != null and .outboundTag == "blocked") | .user) |= (. + [$user] | unique)' "$CONFIG_FILE" > /etc/wibutunnel/tmp/xray_tmp.json && mv /etc/wibutunnel/tmp/xray_tmp.json "$CONFIG_FILE"
                                         echo "$ARG1:$(date +%s):0:LOCK" >> "$DB_LOCK"
-                                        if jq empty /usr/local/etc/xray/config.json >/dev/null 2>&1; then systemctl restart xray >/dev/null 2>&1; fi
-                                        send_msg "🔒 <b>Berhasil!</b>\nAkun <code>$ARG1</code> telah DIKUNCI (Dipindahkan ke Recovery)."
+                                                                                send_msg "🔒 <b>Berhasil!</b>\nAkun <code>$ARG1</code> telah DIKUNCI (Dipindahkan ke Recovery)."
                                     else
                                         send_msg "❌ <b>Gagal!</b>\nAkun <code>$ARG1</code> tidak ditemukan."
                                     fi
@@ -713,8 +690,7 @@ while true; do
                                     if grep -q "^${ARG1}:" "$DB_LOCK" 2>/dev/null; then
                                         jq --arg u "$ARG1" '(.routing.rules[] | select(.user != null and .outboundTag == "blocked") | .user) |= map(select(. != $u))' "$CONFIG_FILE" > /etc/wibutunnel/tmp/xray_tmp.json && mv /etc/wibutunnel/tmp/xray_tmp.json "$CONFIG_FILE"
                                         sed -i "/^${ARG1}:/d" "$DB_LOCK" 2>/dev/null
-                                        if jq empty /usr/local/etc/xray/config.json >/dev/null 2>&1; then systemctl restart xray >/dev/null 2>&1; fi
-                                        send_msg "🔓 <b>Berhasil!</b>\nAkun <code>$ARG1</code> telah DI-UNLOCK dan dapat digunakan kembali."
+                                                                                send_msg "🔓 <b>Berhasil!</b>\nAkun <code>$ARG1</code> telah DI-UNLOCK dan dapat digunakan kembali."
                                     else
                                         send_msg "⚠️ Akun <code>$ARG1</code> tidak dalam status terkunci."
                                     fi
