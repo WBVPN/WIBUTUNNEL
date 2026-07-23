@@ -181,6 +181,7 @@ case $sub_setting in
         safe_update "sbin/unlocker-wibu"
         
         safe_update "common.sh"
+        safe_update "wibu-utils.sh"
         
         dos2unix /usr/local/bin/* >/dev/null 2>&1
         systemctl restart wibutunnel-bot >/dev/null 2>&1

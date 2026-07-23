@@ -685,17 +685,17 @@ while true; do
                                     if grep -q "^${ARG1}:" "$DB_LOCK" 2>/dev/null; then
                                         send_msg "⚠️ Akun <code>$ARG1</code> sudah dalam status TERKUNCI."
                                     elif jq -e --arg u "$ARG1" '[.inbounds[].settings.clients[]?.email, .inbounds[].settings.clients[]?.password] | index($u) != null' "$CONFIG_FILE" >/dev/null 2>&1; then
-                                        jq --arg user "$ARG1" '(.routing.rules[] | select(.user != null and .outboundTag == "blocked") | .user) |= (. + [$user] | unique)' "$CONFIG_FILE" > /etc/wibutunnel/tmp/xray_tmp.json && mv /etc/wibutunnel/tmp/xray_tmp.json "$CONFIG_FILE"
+                                        xray_lock_user "$ARG1"
                                         echo "$ARG1:$(date +%s):0:LOCK" >> "$DB_LOCK"
-                                                                                send_msg "🔒 <b>Berhasil!</b>\nAkun <code>$ARG1</code> telah DIKUNCI (Dipindahkan ke Recovery)."
+                                        send_msg "🔒 <b>Berhasil!</b>\nAkun <code>$ARG1</code> telah DIKUNCI (Dipindahkan ke Recovery)."
                                     else
                                         send_msg "❌ <b>Gagal!</b>\nAkun <code>$ARG1</code> tidak ditemukan."
                                     fi
                                 elif [[ "$CMD" == "/unlock" ]]; then
                                     if grep -q "^${ARG1}:" "$DB_LOCK" 2>/dev/null; then
-                                        jq --arg u "$ARG1" '(.routing.rules[] | select(.user != null and .outboundTag == "blocked") | .user) |= map(select(. != $u))' "$CONFIG_FILE" > /etc/wibutunnel/tmp/xray_tmp.json && mv /etc/wibutunnel/tmp/xray_tmp.json "$CONFIG_FILE"
+                                        xray_unlock_user "$ARG1"
                                         sed -i "/^${ARG1}:/d" "$DB_LOCK" 2>/dev/null
-                                                                                send_msg "🔓 <b>Berhasil!</b>\nAkun <code>$ARG1</code> telah DI-UNLOCK dan dapat digunakan kembali."
+                                        send_msg "🔓 <b>Berhasil!</b>\nAkun <code>$ARG1</code> telah DI-UNLOCK dan dapat digunakan kembali."
                                     else
                                         send_msg "⚠️ Akun <code>$ARG1</code> tidak dalam status terkunci."
                                     fi
