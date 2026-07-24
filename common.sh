@@ -16,7 +16,9 @@ mkdir -p /etc/wibutunnel/tmp
 chmod 700 /etc/wibutunnel/tmp
 
 # INI FUNGSI YANG KEMARIN HILANG: Export IP Global
-export MYIP=$(curl -sS --max-time 5 ipv4.icanhazip.com 2>/dev/null)
+export MYIP=$(curl -sS --max-time 3 ipv4.icanhazip.com 2>/dev/null)
+[[ -z "$MYIP" ]] && export MYIP=$(curl -sS --max-time 3 api.ipify.org 2>/dev/null)
+[[ -z "$MYIP" ]] && export MYIP=$(curl -sS --max-time 3 ifconfig.me 2>/dev/null)
 
 get_isp_city() {
     local CACHE_FILE="/etc/wibutunnel/tmp/isp_city.cache"
@@ -63,8 +65,15 @@ check_license() {
     fi
 
     # Jika cache tidak ada/expired, tarik dari GitHub
+    if [[ -z "$MYIP" ]]; then
+        clear
+        echo -e "${LINE}\n                 ${RED}GAGAL MENDAPATKAN IP VPS!${NC}\n${LINE}"
+        echo -e " Periksa koneksi internet VPS Anda.\n${LINE}"
+        exit 1
+    fi
+
     local LINK_IZIN="https://raw.githubusercontent.com/WBVPN/wibutunnel/main/izin.txt"
-    local GET_DATA=$(curl -sS --max-time 10 "$LINK_IZIN" | grep -w "$MYIP")
+    local GET_DATA=$(curl -sS --max-time 10 "$LINK_IZIN" | grep -w -m 1 "$MYIP")
     
     if [[ -z "$GET_DATA" ]]; then
         clear
