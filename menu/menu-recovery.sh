@@ -1,5 +1,5 @@
 #!/bin/bash
-# WIBU TUNNELING - recovery center (v4.3)
+# WIBU TUNNELING - recovery center (v4.0 KURUMI)
 # Akses: menu-recovery [VLESS|VMESS|TROJAN]
 source /usr/local/bin/common.sh
 check_license

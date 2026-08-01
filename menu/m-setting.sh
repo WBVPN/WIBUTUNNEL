@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==========================================
-# WIBU TUNNELING - m-setting.sh (v4.0 RECOVERY)
+# WIBU TUNNELING - m-setting.sh (v4.0 KURUMI)
 # Security Patch: Anti-Symlink Update + Fix Format Waktu + Speedtest Repo
 # ==========================================
 

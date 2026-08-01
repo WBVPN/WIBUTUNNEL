@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==========================================
-# WIBU TUNNELING - menu-lock.sh (v4.1)
+# WIBU TUNNELING - menu-lock.sh (v4.0 KURUMI)
 # Support: menu-lock VLESS|VMESS|TROJAN (per-protocol mode)
 #          menu-lock (global mode, auto-detect)
 # ==========================================

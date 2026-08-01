@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==========================================
-# WIBU TUNNELING - xp.sh (v4.0 RECOVERY)
+# WIBU TUNNELING - xp.sh (v4.0 KURUMI)
 # [FIX] Lock path + jq exact match
 # ==========================================
 

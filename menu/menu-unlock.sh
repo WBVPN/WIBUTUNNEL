@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==========================================
-# WIBU TUNNELING - menu-unlock.sh (v4.1 RECOVERY CENTER)
+# WIBU TUNNELING - menu-unlock.sh (v4.0 KURUMI)
 # Support: menu-unlock VLESS|VMESS|TROJAN (per-protocol mode)
 #          menu-unlock (global mode, all protocols)
 # ==========================================

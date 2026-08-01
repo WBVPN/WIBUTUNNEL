@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==========================================
-# WIBU TUNNELING - m-backup.sh (v4.1 FIXED)
+# WIBU TUNNELING - m-backup.sh (v4.0 KURUMI)
 # Fixed: license check tidak membunuh cron job, logging, PATH
 # ==========================================
 

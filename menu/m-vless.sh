@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==========================================
-# WIBU TUNNELING - m-vless.sh (v4.0 RECOVERY)
+# WIBU TUNNELING - m-vless.sh (v4.0 KURUMI)
 # [FIX] jq exact match + THICKLINE encoding fix
 # ==========================================
 

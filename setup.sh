@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==========================================
-# MASTER INSTALLER WIBU TUNNELING - v4.0 RECOVERY
+# MASTER INSTALLER WIBU TUNNELING - v4.0 KURUMI
 # Zero-Lag Queue Daemon + Security Patch + Recovery System
 # ==========================================
 
@@ -578,7 +578,7 @@ chmod +x /usr/local/bin/unlock-user
 cat << 'ALEOF' > /usr/local/sbin/algojo-wibu
 #!/bin/bash
 # ==========================================
-# WIBU TUNNELING - algojo-wibu (v5.0 — awk optimization)
+# WIBU TUNNELING - algojo-wibu (v4.0 Kurumi)
 # ==========================================
 source /etc/wibutunnel/bot.conf 2>/dev/null
 DB_IP="/etc/wibutunnel/limit_ip.db"
@@ -649,7 +649,7 @@ chmod +x /usr/local/sbin/algojo-wibu
 cat << 'KQEOF' > /usr/local/sbin/algojo-kuota
 #!/bin/bash
 # ==========================================
-# WIBU TUNNELING - algojo-kuota (v4.0 RECOVERY)
+# WIBU TUNNELING - algojo-kuota (v4.0 KURUMI)
 # ==========================================
 source /etc/wibutunnel/bot.conf 2>/dev/null
 DB_BW="/etc/wibutunnel/limit_bw.db"

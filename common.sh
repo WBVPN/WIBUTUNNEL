@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==========================================
-# WIBU TUNNELING - common.sh ( v1.1 Kurumi ( Fixed Data)
+# WIBU TUNNELING - common.sh (v4.0 KURUMI
 # ==========================================
 
 RED='\e[1;31m'
