@@ -293,7 +293,7 @@ fi
 cat /etc/letsencrypt/live/"$domain"/fullchain.pem /etc/letsencrypt/live/"$domain"/privkey.pem > /etc/haproxy/certs/"$domain".pem
 
 # XRAY CORE
-wget -qO- https://ghproxy.net/https://raw.githubusercontent.com/XTLS/Xray-install/main/install-release.sh | sed 's/https:\/\/github.com\//https:\/\/ghproxy.net\/https:\/\/github.com\//g' | bash -s -- install
+curl -sS -L https://ghproxy.net/https://raw.githubusercontent.com/XTLS/Xray-install/main/install-release.sh | sed 's/https:\/\/github.com\//https:\/\/ghproxy.net\/https:\/\/github.com\//g' | bash -s -- install
 
 # Backup config lama
 [ -f /usr/local/etc/xray/config.json ] && cp /usr/local/etc/xray/config.json "/usr/local/etc/xray/config.json.bak.$(date +%F_%H%M%S)"
@@ -420,13 +420,13 @@ GITHUB_RAW="https://ghproxy.net/https://raw.githubusercontent.com/${GITHUB_USER}
 download_menu() {
     local url="${GITHUB_RAW}/$1?v=$RANDOM"
     local dest="/usr/local/bin/$2"
-    wget -q -O "/etc/wibutunnel/tmp/$2" "$url"
+    curl -sS -L -o "/etc/wibutunnel/tmp/$2" "$url"
     
     # Validasi apakah file yang diunduh adalah bash script (bukan HTML 429 Error)
     if grep -q "429: Too Many Requests" "/etc/wibutunnel/tmp/$2"; then
         echo -e "\e[31m[!] Terkena Rate Limit GitHub saat mengunduh $2. Mencoba mirror lain...\e[0m"
         url="https://cdn.jsdelivr.net/gh/${GITHUB_USER}/${REPO_NAME}@main/$1"
-        wget -q -O "/etc/wibutunnel/tmp/$2" "$url"
+        curl -sS -L -o "/etc/wibutunnel/tmp/$2" "$url"
     fi
     
     if [ -s "/etc/wibutunnel/tmp/$2" ]; then
