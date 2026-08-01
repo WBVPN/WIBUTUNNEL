@@ -63,6 +63,34 @@ Setelah proses instalasi di VPS selesai, fitur Bot Telegram belum langsung menya
 
 ---
 
+## 🗑️ Cara Uninstall Script (Hapus Bersih)
+
+Jika Anda ingin menghapus WIBU TUNNELING secara menyeluruh dari VPS Anda tanpa harus *rebuild* OS, jalankan blok perintah berikut di terminal:
+
+```bash
+# Hentikan semua layanan
+systemctl stop xray haproxy wibutunnel-bot
+systemctl disable xray haproxy wibutunnel-bot
+
+# Hapus file konfigurasi dan database
+rm -rf /usr/local/etc/xray /etc/haproxy /etc/wibutunnel /etc/xray /var/log/xray
+
+# Hapus file executable menu & daemon
+rm -rf /usr/local/sbin/algojo-* /usr/local/sbin/unlocker-wibu
+rm -rf /usr/local/bin/menu* /usr/local/bin/m-* /usr/local/bin/lock-user /usr/local/bin/unlock-user /usr/local/bin/bot-daemon /usr/local/bin/cek-trafik
+
+# Hapus service systemd
+rm -f /etc/systemd/system/xray.service /etc/systemd/system/wibutunnel-bot.service
+systemctl daemon-reload
+
+# Uninstall paket bawaan (opsional)
+apt-get remove --purge -y haproxy vnstat jq
+apt-get autoremove -y
+
+echo "Uninstalasi Selesai! VPS sudah bersih dari WIBU TUNNELING."
+```
+
+---
 ## 📞 Support & Kontak
 
 - **WhatsApp** : [087757315408](https://wa.me/6287757315408)
