@@ -11,19 +11,19 @@ touch $OFFSET_FILE
 
 get_random_quote() {
     local quotes=(
-        ""Tidak peduli seberapa tebal awan gelap, matahari akan selalu bersinar di baliknya." - Naruto"
-        ""Seseorang akan menjadi kuat jika melindungi seseorang yang dicintainya." - Haku"
-        ""Mimpi tidak akan pernah menjadi kenyataan jika kau hanya diam." - Doraemon"
-        ""Kegagalan bukanlah akhir, melainkan awal dari pelajaran baru." - Saitama"
-        ""Jika kau tidak menyukai takdirmu, jangan terima. Ubah takdirmu!" - Naruto"
-        ""Keberhasilan tidak akan datang kepada mereka yang hanya menunggu." - Eren Yeager"
-        ""Lebih baik mati dalam perjuangan daripada hidup tanpa tujuan." - Roronoa Zoro"
-        ""Kekuatan sejati bukanlah tentang memenangkan pertarungan, tapi melindungi apa yang penting." - Kirito"
-        ""Satu-satunya cara agar tidak kalah adalah dengan terus belajar." - Sora"
-        ""Dunia ini tidak sempurna, itulah sebabnya dunia ini indah." - Roy Mustang"
-        ""Terkadang, hal terberat yang harus dilakukan adalah yang paling benar." - Edward Elric"
-        ""Menjadi lemah tidak memalukan, memalukan itu jika kita diam saja." - Fuegoleon Vermillion"
-        ""Jangan biarkan masa lalumu menentukan masa depanmu." - Kenshin Himura"
+        '"Tidak peduli seberapa tebal awan gelap, matahari akan selalu bersinar di baliknya." - Naruto'
+        '"Seseorang akan menjadi kuat jika melindungi seseorang yang dicintainya." - Haku'
+        '"Mimpi tidak akan pernah menjadi kenyataan jika kau hanya diam." - Doraemon'
+        '"Kegagalan bukanlah akhir, melainkan awal dari pelajaran baru." - Saitama'
+        '"Jika kau tidak menyukai takdirmu, jangan terima. Ubah takdirmu!" - Naruto'
+        '"Keberhasilan tidak akan datang kepada mereka yang hanya menunggu." - Eren Yeager'
+        '"Lebih baik mati dalam perjuangan daripada hidup tanpa tujuan." - Roronoa Zoro'
+        '"Kekuatan sejati bukanlah tentang memenangkan pertarungan, tapi melindungi apa yang penting." - Kirito'
+        '"Satu-satunya cara agar tidak kalah adalah dengan terus belajar." - Sora'
+        '"Dunia ini tidak sempurna, itulah sebabnya dunia ini indah." - Roy Mustang'
+        '"Terkadang, hal terberat yang harus dilakukan adalah yang paling benar." - Edward Elric'
+        '"Menjadi lemah tidak memalukan, memalukan itu jika kita diam saja." - Fuegoleon Vermillion'
+        '"Jangan biarkan masa lalumu menentukan masa depanmu." - Kenshin Himura'
     )
     local rand=$((RANDOM % ${#quotes[@]}))
     echo "${quotes[$rand]}"
@@ -196,14 +196,15 @@ create_account() {
     local ISP=$(curl -s ip-api.com/line?fields=isp 2>/dev/null)
     [[ -z "$CITY" ]] && CITY="Unknown"; [[ -z "$ISP" ]] && ISP="Unknown"
     local THICKLINE="━━━━━━━━━━━━━━━━━━━━"
-    local pesan="✨ <b>VPN ACCOUNT - ${proto}</b> ✨\n"
+    local pesan="<b>VPN ACCOUNT - ${proto}</b>\n"
     pesan+="${THICKLINE}\n"
     pesan+="<b>Remarks    :</b> <code>${user}</code>\n"
-    pesan+="🌐 <b>Domain     :</b> <code>${domain}</code>\n"
-    pesan+="🏢 <b>ISP / City :</b> <code>${ISP} / ${CITY}</code>\n"
-    pesan+="⏳ <b>Expired On :</b> <code>${exp_date}</code>\n"
+    pesan+="<b>Domain     :</b> <code>${domain}</code>\n"
+    pesan+="<b>ISP        :</b> <code>${ISP}</code>\n"
+    pesan+="<b>City       :</b> <code>${CITY}</code>\n"
+    pesan+="<b>Expired On :</b> <code>${exp_date}</code>\n"
     pesan+="${THICKLINE}\n"
-    pesan+="⚙️ <b>CONFIG DETAILS</b>\n"
+    pesan+="<b>CONFIG DETAILS</b>\n"
     pesan+="<b>Port TLS   :</b> <code>443</code>\n"
     
     if [[ "$proto" != "TROJAN" ]]; then
@@ -557,14 +558,15 @@ detail_account() {
     [[ -z "$CITY" ]] && CITY="Unknown"; [[ -z "$ISP" ]] && ISP="Unknown"
 
     local THICKLINE="━━━━━━━━━━━━━━━━━━━━"
-    local pesan="✨ <b>VPN ACCOUNT - ${proto}</b> ✨\n"
+    local pesan="<b>VPN ACCOUNT - ${proto}</b>\n"
     pesan+="${THICKLINE}\n"
     pesan+="<b>Remarks    :</b> <code>${user}</code>\n"
-    pesan+="🌐 <b>Domain     :</b> <code>${domain}</code>\n"
-    pesan+="🏢 <b>ISP / City :</b> <code>${ISP} / ${CITY}</code>\n"
-    pesan+="⏳ <b>Expired On :</b> <code>${exp_date}</code>\n"
+    pesan+="<b>Domain     :</b> <code>${domain}</code>\n"
+    pesan+="<b>ISP        :</b> <code>${ISP}</code>\n"
+    pesan+="<b>City       :</b> <code>${CITY}</code>\n"
+    pesan+="<b>Expired On :</b> <code>${exp_date}</code>\n"
     pesan+="${THICKLINE}\n"
-    pesan+="⚙️ <b>CONFIG DETAILS</b>\n"
+    pesan+="<b>CONFIG DETAILS</b>\n"
     pesan+="<b>Port TLS   :</b> <code>443</code>\n"
     
     if [[ "$proto" != "TROJAN" ]]; then
