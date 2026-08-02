@@ -50,7 +50,7 @@ for line in "${locked_list[@]}"; do
     proto="${USER_PROTOS[$u]}"
     [[ -n "$FILTER_PROTO" && "$proto" != "$FILTER_PROTO" ]] && continue
     if [[ -z "$proto" ]]; then
-        sed -i "/^${u}:/d" "$DB_LOCK" 2>/dev/null; sed -i "/^${u}:/d" /etc/wibutunnel/user_usage.db 2>/dev/null
+        safe_sed_delete "" "$DB_LOCK"; safe_sed_delete "" /etc/wibutunnel/user_usage.db
         jq --arg user "$u" '(.routing.rules[] | select(.user != null and .outboundTag == "blocked") | .user) |= map(select(. != $user))' /usr/local/etc/xray/config.json > /etc/wibutunnel/tmp/xray.json && mv /etc/wibutunnel/tmp/xray.json /usr/local/etc/xray/config.json
         GHOST_FOUND=true; continue
     fi
@@ -90,13 +90,13 @@ if [[ "$target" == "deleteallusers" ]]; then
             .inbounds[8].settings.clients |= map(select(.email != $u)) |
             (.routing.rules[] | select(.user != null and .outboundTag == "blocked") | .user) |= map(select(. != $u))
         ' /usr/local/etc/xray/config.json > /etc/wibutunnel/tmp/xray.json && mv /etc/wibutunnel/tmp/xray.json /usr/local/etc/xray/config.json
-        sed -i "/^${user}:/d" /etc/xray/vless_exp.conf
-        sed -i "/^${user}:/d" /etc/xray/vmess_exp.conf
-        sed -i "/^${user}:/d" /etc/xray/trojan_exp.conf
-        sed -i "/^${user}:/d" /etc/wibutunnel/limit_ip.db 2>/dev/null
-        sed -i "/^${user}:/d" /etc/wibutunnel/limit_bw.db 2>/dev/null
-        sed -i "/^${user}:/d" /etc/wibutunnel/locked_users.db 2>/dev/null
-        sed -i "/^${user}:/d" /etc/wibutunnel/user_usage.db 2>/dev/null
+        safe_sed_delete "" /etc/xray/vless_exp.conf
+        safe_sed_delete "" /etc/xray/vmess_exp.conf
+        safe_sed_delete "" /etc/xray/trojan_exp.conf
+        safe_sed_delete "" /etc/wibutunnel/limit_ip.db
+        safe_sed_delete "" /etc/wibutunnel/limit_bw.db
+        safe_sed_delete "" /etc/wibutunnel/locked_users.db
+        safe_sed_delete "" /etc/wibutunnel/user_usage.db
     done
     > /etc/wibutunnel/locked_users.db
     systemctl restart xray >/dev/null 2>&1
@@ -118,16 +118,16 @@ read -p " Limit IP Baru (0=Bebas): " ip_baru; [[ ! "$ip_baru" =~ ^[0-9]+$ ]] && 
 read -p " Limit Kuota GB (0=Unli): " bw_baru; [[ ! "$bw_baru" =~ ^[0-9]+$ ]] && bw_baru=0
 
 new_exp=$(date -d "+${hari_baru} days" +"%Y-%m-%d %H:%M:%S"); proto="${USER_PROTOS[$user]}"
-[[ "$proto" == "VLESS" ]]  && { sed -i "/^${user}:/d" /etc/xray/vless_exp.conf; echo "${user}:${new_exp}" >> /etc/xray/vless_exp.conf; }
-[[ "$proto" == "VMESS" ]]  && { sed -i "/^${user}:/d" /etc/xray/vmess_exp.conf; echo "${user}:${new_exp}" >> /etc/xray/vmess_exp.conf; }
-[[ "$proto" == "TROJAN" ]] && { sed -i "/^${user}:/d" /etc/xray/trojan_exp.conf; echo "${user}:${new_exp}" >> /etc/xray/trojan_exp.conf; }
+[[ "$proto" == "VLESS" ]]  && { safe_sed_delete "" /etc/xray/vless_exp.conf; echo "${user}:${new_exp}" >> /etc/xray/vless_exp.conf; }
+[[ "$proto" == "VMESS" ]]  && { safe_sed_delete "" /etc/xray/vmess_exp.conf; echo "${user}:${new_exp}" >> /etc/xray/vmess_exp.conf; }
+[[ "$proto" == "TROJAN" ]] && { safe_sed_delete "" /etc/xray/trojan_exp.conf; echo "${user}:${new_exp}" >> /etc/xray/trojan_exp.conf; }
 
-sed -i "/^${user}:/d" /etc/wibutunnel/limit_ip.db 2>/dev/null; echo "${user}:${ip_baru}" >> /etc/wibutunnel/limit_ip.db
-sed -i "/^${user}:/d" /etc/wibutunnel/limit_bw.db 2>/dev/null; echo "${user}:${bw_baru}" >> /etc/wibutunnel/limit_bw.db
-sed -i "/^${user}:/d" /etc/wibutunnel/user_usage.db 2>/dev/null
+safe_sed_delete "" /etc/wibutunnel/limit_ip.db; echo "${user}:${ip_baru}" >> /etc/wibutunnel/limit_ip.db
+safe_sed_delete "" /etc/wibutunnel/limit_bw.db; echo "${user}:${bw_baru}" >> /etc/wibutunnel/limit_bw.db
+safe_sed_delete "" /etc/wibutunnel/user_usage.db
 
 jq --arg u "$user" '(.routing.rules[] | select(.user != null and .outboundTag == "blocked") | .user) |= map(select(. != $u))' /usr/local/etc/xray/config.json > /etc/wibutunnel/tmp/xray.json && mv /etc/wibutunnel/tmp/xray.json /usr/local/etc/xray/config.json
-sed -i "/^$user:/d" /etc/wibutunnel/locked_users.db 2>/dev/null; systemctl restart xray >/dev/null 2>&1
+safe_sed_delete "" /etc/wibutunnel/locked_users.db; systemctl restart xray >/dev/null 2>&1
 
 echo -e "\n ${GREEN}BERHASIL! Akun ${user} telah aktif kembali.${NC}"
 read -p " Tekan Enter..."; [[ -n "$FILTER_PROTO" ]] && exec "m-${proto_lower}" || exec menu

@@ -178,14 +178,14 @@ case $sub_setting in
         safe_update "common.sh"
         
         dos2unix /usr/local/bin/* >/dev/null 2>&1
-        systemctl restart wibutunnel-bot >/dev/null 2>&1
+        systemctl restart wibu-daemon telegram-webhook.socket >/dev/null 2>&1
         echo -e "\n${GREEN}Update Selesai! Semua menu sudah versi terbaru.${NC}"
         read -n 1 -s -r -p "Tekan tombol apa saja..."
         exec m-setting
         ;;
     6)
         clear; echo -e "$LINE"; echo -e "         ${WHITE}SETUP BOT TELEGRAM${NC}"; echo -e "$LINE"
-        bot_status=$(systemctl is-active wibutunnel-bot 2>/dev/null)
+        bot_status=$(systemctl is-active telegram-webhook.socket 2>/dev/null)
         [[ "$bot_status" == "active" ]] && text_sts="${GREEN}Aktif & Berjalan${NC}" || text_sts="${RED}Mati (Stopped)${NC}"
         echo -e " Status Daemon Bot : $text_sts\n"
         echo -e " [1] Ganti BOT TOKEN & CHAT ID"
