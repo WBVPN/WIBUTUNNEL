@@ -25,6 +25,10 @@ crontab -l | grep -v 'watchdog.sh' | grep -v 'xp' | grep -v 'unlocker-wibu' | gr
 rm -f /etc/systemd/system/xray.service /etc/systemd/system/telegram-webhook*
 systemctl daemon-reload
 
+# Bersihkan .profile
+sed -i '/^clear$/d' /root/.profile
+sed -i '/^menu$/d' /root/.profile
+
 # Uninstall paket bawaan (opsional)
 apt-get remove --purge -y haproxy vnstat jq >/dev/null 2>&1
 apt-get autoremove -y >/dev/null 2>&1
