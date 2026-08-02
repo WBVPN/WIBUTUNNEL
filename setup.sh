@@ -209,10 +209,12 @@ if ! grep -q "tmpfs /tmp" /etc/fstab; then
 fi
 
 if ! grep -q "tmpfs /var/log/xray" /etc/fstab; then
-    echo "tmpfs /var/log/xray tmpfs defaults,nosuid,nodev,noexec,mode=1777,size=30M 0 0" >> /etc/fstab
+    echo "tmpfs /var/log/xray tmpfs defaults,nosuid,nodev,noexec,mode=1777,size=30M,uid=65534,gid=65534 0 0" >> /etc/fstab
     mkdir -p /var/log/xray
     mount /var/log/xray 2>/dev/null || true
+    chown -R nobody:nogroup /var/log/xray
 fi
+
 
 # Anti-Torrent
 iptables -A FORWARD -m string --string "get_peers" --algo bm -j DROP
@@ -843,7 +845,8 @@ systemctl enable --now telegram-webhook.socket >/dev/null 2>&1
 # Logrotate & Cron
 cat << 'LREOF' > /etc/logrotate.d/xray
 /var/log/xray/*.log {
-    su root root
+    su nobody nogroup
+    create 0644 nobody nogroup
     daily
     rotate 3
     size 10M
