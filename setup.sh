@@ -368,6 +368,9 @@ frontend ssl_sni
     acl is_vmess_ws path_beg %2Fvmess
     acl is_trojan_ws path_beg /trojan
     acl is_trojan_ws path_beg %2Ftrojan
+    acl is_telehook path_beg /telehook
+    acl is_telehook path_beg %2Ftelehook
+    use_backend webhook_server if is_telehook
     use_backend xray_vless_grpc if is_vless_grpc
     use_backend xray_vmess_grpc if is_vmess_grpc
     use_backend xray_trojan_grpc if is_trojan_grpc
@@ -411,6 +414,10 @@ backend xray_vless_ntls
 backend xray_vmess_ntls
     mode http
     server vmess_ntls_server 127.0.0.1:10090 send-proxy-v2 check
+
+backend webhook_server
+    mode http
+    server local_webhook 127.0.0.1:8443
 HFEOF
 
 # Bypass GitHub 429 Rate Limit menggunakan GHProxy
@@ -450,6 +457,7 @@ download_menu "menu/menu-recovery.sh" "menu-recovery"
 download_menu "menu/cek-trafik.sh" "cek-trafik"
 download_menu "common.sh" "common.sh"
 download_menu "menu/bot-daemon.sh" "bot-daemon"
+download_menu "menu/bot-webhook.sh" "bot-webhook"
 
 # =========================================================
 # SISTEM RECOVERY CENTER & ALGOJO MONITOR (v4.0 PERFECT)
@@ -639,8 +647,7 @@ if [[ ${#USERS_TO_LOCK[@]} -gt 0 ]]; then
     for usr in "${USERS_TO_LOCK[@]}"; do
         jq_args+=("$usr")
     done
-    jq --argjson users "$(printf '%s
-' "${jq_args[@]}" | jq -R . | jq -s .)" '(.routing.rules[] | select(.outboundTag == "blocked" and .user != null) | .user) |= (. + $users | unique)' /usr/local/etc/xray/config.json > /tmp/xray.json && mv /tmp/xray.json /usr/local/etc/xray/config.json
+    jq --argjson users "$(printf '%s\n' "${jq_args[@]}" | jq -R . | jq -s .)" '(.routing.rules[] | select(.outboundTag == "blocked" and .user != null) | .user) |= (. + $users | unique)' /usr/local/etc/xray/config.json > /tmp/xray.json && mv /tmp/xray.json /usr/local/etc/xray/config.json
     systemctl restart xray >/dev/null 2>&1
 fi
 ALEOF
@@ -729,8 +736,7 @@ if [[ ${#USERS_TO_LOCK[@]} -gt 0 ]]; then
     for usr in "${USERS_TO_LOCK[@]}"; do
         jq_args+=("$usr")
     done
-    jq --argjson users "$(printf '%s
-' "${jq_args[@]}" | jq -R . | jq -s .)" '(.routing.rules[] | select(.outboundTag == "blocked" and .user != null) | .user) |= (. + $users | unique)' /usr/local/etc/xray/config.json > /tmp/xray.json && mv /tmp/xray.json /usr/local/etc/xray/config.json
+    jq --argjson users "$(printf '%s\n' "${jq_args[@]}" | jq -R . | jq -s .)" '(.routing.rules[] | select(.outboundTag == "blocked" and .user != null) | .user) |= (. + $users | unique)' /usr/local/etc/xray/config.json > /tmp/xray.json && mv /tmp/xray.json /usr/local/etc/xray/config.json
     systemctl restart xray >/dev/null 2>&1
 fi
 KQEOF
@@ -777,30 +783,40 @@ RestartSec=3
 WantedBy=multi-user.target
 EOF
 
-cat << 'EOF' > /etc/systemd/system/wibutunnel-bot.service
+cat << 'EOF' > /etc/systemd/system/telegram-webhook.socket
 [Unit]
-Description=Wibutunnel Telegram Bot Daemon
-After=network.target
+Description=Telegram Webhook Socket
 
-[Service]
-ExecStart=/usr/local/bin/bot-daemon
-Restart=always
+[Socket]
+ListenStream=127.0.0.1:8443
+Accept=yes
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=sockets.target
+EOF
+
+cat << 'EOF' > /etc/systemd/system/telegram-webhook@.service
+[Unit]
+Description=Telegram Webhook Service
+
+[Service]
+ExecStart=/usr/local/bin/bot-webhook
+StandardInput=socket
+StandardOutput=socket
+User=root
 EOF
 
 chmod +x /usr/local/bin/wibu-daemon
 chmod +x /usr/local/sbin/algojo-wibu 2>/dev/null || true
 chmod +x /usr/local/sbin/algojo-kuota 2>/dev/null || true
 chmod +x /usr/local/bin/bot-daemon
+chmod +x /usr/local/bin/bot-webhook
 
 systemctl daemon-reload
 systemctl enable wibu-daemon >/dev/null 2>&1
 systemctl restart wibu-daemon
 
-systemctl enable wibutunnel-bot >/dev/null 2>&1
-systemctl restart wibutunnel-bot
+systemctl enable --now telegram-webhook.socket >/dev/null 2>&1
 
 # Logrotate & Cron
 cat << 'LREOF' > /etc/logrotate.d/xray
@@ -865,6 +881,12 @@ systemctl daemon-reload
 systemctl enable xray haproxy cron
 systemctl start cron
 systemctl restart xray haproxy
+
+# Set Webhook URL to Telegram
+source /etc/wibutunnel/bot.conf 2>/dev/null
+if [[ -n "$BOT_TOKEN" ]]; then
+    curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/setWebhook" -F "url=https://${domain}/telehook" >/dev/null 2>&1
+fi
 
 dos2unix /usr/local/bin/* /usr/local/sbin/* >/dev/null 2>&1
 
