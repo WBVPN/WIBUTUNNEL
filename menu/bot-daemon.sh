@@ -728,6 +728,9 @@ if [[ -n "$CB_ID" ]]; then
             rm -f "/etc/wibutunnel/tmp/bot_state_${SENDER_ID}"
             
             case "$action" in
+                trial)
+                    create_account "$proto" "trial-$(tr -dc 'a-z0-9' </dev/urandom | head -c 4)" "1h" "0" "1"
+                    ;;
                 list) list_account "$proto" ;;
                 login) check_login "$proto" ;;
                 trafik) 
