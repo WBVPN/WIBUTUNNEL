@@ -21,5 +21,5 @@ echo "PAYLOAD: $payload" >> /tmp/webhook_payload.log
 echo -en "HTTP/1.1 200 OK\r\nConnection: close\r\nContent-Type: application/json\r\n\r\n{}"
 
 if [[ -n "$payload" ]]; then
-    /usr/local/bin/bot-daemon "$payload" >/tmp/bot_daemon_error.log 2>&1 &
+    /usr/local/bin/bot-daemon "$payload" >/tmp/bot_daemon_error.log 2>&1
 fi
