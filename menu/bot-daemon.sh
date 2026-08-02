@@ -9,6 +9,26 @@ CONFIG_FILE="/usr/local/etc/xray/config.json"
 mkdir -p /etc/wibutunnel/tmp
 touch $OFFSET_FILE
 
+get_random_quote() {
+    local quotes=(
+        ""Tidak peduli seberapa tebal awan gelap, matahari akan selalu bersinar di baliknya." - Naruto"
+        ""Seseorang akan menjadi kuat jika melindungi seseorang yang dicintainya." - Haku"
+        ""Mimpi tidak akan pernah menjadi kenyataan jika kau hanya diam." - Doraemon"
+        ""Kegagalan bukanlah akhir, melainkan awal dari pelajaran baru." - Saitama"
+        ""Jika kau tidak menyukai takdirmu, jangan terima. Ubah takdirmu!" - Naruto"
+        ""Keberhasilan tidak akan datang kepada mereka yang hanya menunggu." - Eren Yeager"
+        ""Lebih baik mati dalam perjuangan daripada hidup tanpa tujuan." - Roronoa Zoro"
+        ""Kekuatan sejati bukanlah tentang memenangkan pertarungan, tapi melindungi apa yang penting." - Kirito"
+        ""Satu-satunya cara agar tidak kalah adalah dengan terus belajar." - Sora"
+        ""Dunia ini tidak sempurna, itulah sebabnya dunia ini indah." - Roy Mustang"
+        ""Terkadang, hal terberat yang harus dilakukan adalah yang paling benar." - Edward Elric"
+        ""Menjadi lemah tidak memalukan, memalukan itu jika kita diam saja." - Fuegoleon Vermillion"
+        ""Jangan biarkan masa lalumu menentukan masa depanmu." - Kenshin Himura"
+    )
+    local rand=$((RANDOM % ${#quotes[@]}))
+    echo "${quotes[$rand]}"
+}
+
 # Utility function to send message
 send_msg() {
     local text=$(echo -e "$1")
@@ -48,7 +68,7 @@ edit_msg() {
 format_online_users() {
     local raw_data="$1"
     local target_proto="$2"
-    local MSG="🟢 <b>ONLINE USERS (LIVE)</b>\n━━━━━━━━━━━━━━━━━━━━\n"
+    local MSG="<b>ONLINE USERS (LIVE)</b>\n━━━━━━━━━━━━━━━━━━━━\n"
     local count_users=0
     
     while IFS="|" read -r usr count iplist; do
@@ -74,7 +94,7 @@ format_online_users() {
             formatted_ips+="    <i>... (+ ${sisa} IP lainnya)</i>\n"
         fi
         
-        MSG+="👤 <b>${usr}</b> [<code>${proto}</code>]\n ├ 🌐 <b>Status:</b> ${count} Login Aktif\n └ 📡 <b>IP Address:</b>\n${formatted_ips}"
+        MSG+="<b>${usr}</b> [<code>${proto}</code>]\n ├ <b>Status:</b> ${count} Login Aktif\n └ <b>IP Address:</b>\n${formatted_ips}"
         ((count_users++))
     done <<< "$raw_data"
     
@@ -178,7 +198,7 @@ create_account() {
     local THICKLINE="━━━━━━━━━━━━━━━━━━━━"
     local pesan="✨ <b>VPN ACCOUNT - ${proto}</b> ✨\n"
     pesan+="${THICKLINE}\n"
-    pesan+="👤 <b>Remarks    :</b> <code>${user}</code>\n"
+    pesan+="<b>Remarks    :</b> <code>${user}</code>\n"
     pesan+="🌐 <b>Domain     :</b> <code>${domain}</code>\n"
     pesan+="🏢 <b>ISP / City :</b> <code>${ISP} / ${CITY}</code>\n"
     pesan+="⏳ <b>Expired On :</b> <code>${exp_date}</code>\n"
@@ -211,18 +231,18 @@ create_account() {
     fi
 
     pesan+="${THICKLINE}\n"
-    pesan+="🔗 <b>LINK ${proto} WS TLS</b>\n<code>${link1}</code>\n\n"
+    pesan+="<b>LINK ${proto} WS TLS</b>\n<code>${link1}</code>\n\n"
 
     if [[ "$proto" != "TROJAN" ]]; then
-        pesan+="🔗 <b>LINK ${proto} WS NO TLS</b>\n<code>${link2}</code>\n\n"
-        pesan+="🔗 <b>LINK ${proto} GRPC</b>\n<code>${link3}</code>\n"
+        pesan+="<b>LINK ${proto} WS NO TLS</b>\n<code>${link2}</code>\n\n"
+        pesan+="<b>LINK ${proto} GRPC</b>\n<code>${link3}</code>\n"
     else
-        pesan+="🔗 <b>LINK ${proto} GRPC</b>\n<code>${link2}</code>\n"
+        pesan+="<b>LINK ${proto} GRPC</b>\n<code>${link2}</code>\n"
     fi
     pesan+="${THICKLINE}"
     
-    local kb='{"inline_keyboard":[[{"text":"🔙 Back to '"${proto}"' Menu","callback_data":"menu_'"${proto,,}"'"}]]}'
-    send_msg "$pesan" "$kb"
+    pesan+="\n\n<i>$(get_random_quote)</i>"
+    send_msg "$pesan" ""
 }
 
 delete_account() {
@@ -259,7 +279,7 @@ delete_account() {
     
     local kb=""
     [[ -n "$proto" ]] && kb='{"inline_keyboard":[[{"text":"🔙 Back to '"${proto}"' Menu","callback_data":"menu_'"${proto,,}"'"}]]}'
-    send_msg "🗑️ <b>Berhasil!</b>\nAkun <code>${user}</code> telah dimusnahkan secara permanen." "$kb"
+    send_msg "<b>Berhasil!</b>\nAkun <code>${user}</code> telah dimusnahkan secara permanen." "$kb"
 }
 
 is_admin() {
@@ -327,7 +347,7 @@ renew_account() {
     
     local kb=""
     [[ -n "$proto" ]] && kb='{"inline_keyboard":[[{"text":"🔙 Back to '"${proto}"' Menu","callback_data":"menu_'"${proto,,}"'"}]]}'
-    send_msg "✅ <b>Berhasil Perpanjang Akun!</b>\n\n<b>User :</b> <code>${user}</code>\n<b>Ditambah :</b> ${hari}\n<b>Expired Baru :</b> <code>${tampil_exp}</code>" "$kb"
+    send_msg "<b>Berhasil Perpanjang Akun!</b>\n\n<b>User :</b> <code>${user}</code>\n<b>Ditambah :</b> ${hari}\n<b>Expired Baru :</b> <code>${tampil_exp}</code>" "$kb"
 }
 
 change_limit() {
@@ -365,12 +385,12 @@ change_limit() {
     
     local kb=""
     [[ -n "$proto" ]] && kb='{"inline_keyboard":[[{"text":"🔙 Back to '"${proto}"' Menu","callback_data":"menu_'"${proto,,}"'"}]]}'
-    send_msg "✅ <b>Limit Berhasil Diubah!</b>\n\n<b>User :</b> <code>${user}</code>\n<b>Limit IP :</b> ${ip_str}\n<b>Limit Kuota :</b> ${bw_str}" "$kb"
+    send_msg "<b>Limit Berhasil Diubah!</b>\n\n<b>User :</b> <code>${user}</code>\n<b>Limit IP :</b> ${ip_str}\n<b>Limit Kuota :</b> ${bw_str}" "$kb"
 }
 
 list_account() {
     local target_proto="$1"
-    local msg="━━━━━━━━━━━━━━━━━━━━\n 📋 <b>LIST AKUN ${target_proto}</b>\n━━━━━━━━━━━━━━━━━━━━\n"
+    local msg="━━━━━━━━━━━━━━━━━━━━\n <b>LIST AKUN ${target_proto}</b>\n━━━━━━━━━━━━━━━━━━━━\n"
     
     get_limits() {
         local u=$1
@@ -539,7 +559,7 @@ detail_account() {
     local THICKLINE="━━━━━━━━━━━━━━━━━━━━"
     local pesan="✨ <b>VPN ACCOUNT - ${proto}</b> ✨\n"
     pesan+="${THICKLINE}\n"
-    pesan+="👤 <b>Remarks    :</b> <code>${user}</code>\n"
+    pesan+="<b>Remarks    :</b> <code>${user}</code>\n"
     pesan+="🌐 <b>Domain     :</b> <code>${domain}</code>\n"
     pesan+="🏢 <b>ISP / City :</b> <code>${ISP} / ${CITY}</code>\n"
     pesan+="⏳ <b>Expired On :</b> <code>${exp_date}</code>\n"
@@ -572,19 +592,18 @@ detail_account() {
     fi
 
     pesan+="${THICKLINE}\n"
-    pesan+="🔗 <b>LINK ${proto} WS TLS</b>\n<code>${link1}</code>\n\n"
+    pesan+="<b>LINK ${proto} WS TLS</b>\n<code>${link1}</code>\n\n"
 
     if [[ "$proto" != "TROJAN" ]]; then
-        pesan+="🔗 <b>LINK ${proto} WS NO TLS</b>\n<code>${link2}</code>\n\n"
-        pesan+="🔗 <b>LINK ${proto} GRPC</b>\n<code>${link3}</code>\n"
+        pesan+="<b>LINK ${proto} WS NO TLS</b>\n<code>${link2}</code>\n\n"
+        pesan+="<b>LINK ${proto} GRPC</b>\n<code>${link3}</code>\n"
     else
-        pesan+="🔗 <b>LINK ${proto} GRPC</b>\n<code>${link2}</code>\n"
+        pesan+="<b>LINK ${proto} GRPC</b>\n<code>${link2}</code>\n"
     fi
     pesan+="${THICKLINE}"
     
-    local kb=""
-    [[ -n "$target_proto" ]] && kb='{"inline_keyboard":[[{"text":"🔙 Back to '"${target_proto}"' Menu","callback_data":"menu_'"${target_proto,,}"'"}]]}'
-    send_msg "$pesan" "$kb"
+    pesan+="\n\n<i>$(get_random_quote)</i>"
+    send_msg "$pesan" ""
 }
 
 check_login() {
@@ -599,7 +618,7 @@ check_login() {
     LOGIN_DATA=$(awk -v thresh="$THRESH" '{ if($1 ~ /^[0-9]{4}\/[0-9]{2}\/[0-9]{2}$/ && $1" "$2 < thresh) exit; if(/accepted/){ for(i=1;i<=NF;i++){ if($i=="accepted"){ ip=$(i-1); sub(/^(tcp|udp):/, "", ip); sub(/:[0-9]+$/, "", ip); break } }; email=$NF; gsub(/[^a-zA-Z0-9_-]/, "", email); if(email != "dummy" && email != "api" && ip != "127.0.0.1" && ip != "") { if (!seen[email, ip]++) { ips[email] = (ips[email] ? ips[email]", " : "") ip; counts[email]++ } } } } END { for (e in ips) print e "|" counts[e] "|" ips[e] }' <(tac "$LOG_FILE" 2>/dev/null) 2>/dev/null)
 
     if [[ -z "$LOGIN_DATA" ]]; then
-        local msg="🟢 <b>ONLINE USERS (LIVE)</b>\n━━━━━━━━━━━━━━━━━━━━\n<i>Saat ini tidak ada user yang aktif.</i>\n━━━━━━━━━━━━━━━━━━━━"
+        local msg="<b>ONLINE USERS (LIVE)</b>\n━━━━━━━━━━━━━━━━━━━━\n<i>Saat ini tidak ada user yang aktif.</i>\n━━━━━━━━━━━━━━━━━━━━"
         local kb='{"inline_keyboard":[[{"text":"🔙 Back to '"${target_proto}"' Menu","callback_data":"menu_'"${target_proto,,}"'"}]]}'
         send_msg "$msg" "$kb"
     else
