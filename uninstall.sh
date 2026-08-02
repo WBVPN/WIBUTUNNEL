@@ -4,8 +4,12 @@
 echo -e "\e[33mMemulai proses uninstall WIBU TUNNELING...\e[0m"
 
 # Hentikan semua layanan
-systemctl stop xray haproxy wibutunnel-bot 2>/dev/null
-systemctl disable xray haproxy wibutunnel-bot 2>/dev/null
+source /etc/wibutunnel/bot.conf 2>/dev/null
+if [[ -n "$BOT_TOKEN" ]]; then
+    curl -s "https://api.telegram.org/bot${BOT_TOKEN}/deleteWebhook" >/dev/null 2>&1
+fi
+systemctl stop xray haproxy wibutunnel-bot telegram-webhook.socket 2>/dev/null
+systemctl disable xray haproxy wibutunnel-bot telegram-webhook.socket 2>/dev/null
 
 # Hapus file konfigurasi dan database
 rm -rf /usr/local/etc/xray /etc/haproxy /etc/wibutunnel /etc/xray /var/log/xray
