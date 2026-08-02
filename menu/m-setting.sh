@@ -199,20 +199,35 @@ case $sub_setting in
                 read -p "Masukkan BOT TOKEN : " input_token
                 read -p "Masukkan CHAT ID   : " input_chatid
                 if [[ -n "$input_token" && -n "$input_chatid" ]]; then
+                    # Generate Webhook Secret if not exist
+                    source /etc/wibutunnel/bot.conf 2>/dev/null
+                    if [[ -z "$WEBHOOK_SECRET" ]]; then
+                        WEBHOOK_SECRET=$(head -c 32 /dev/urandom | base64 | tr -dc 'a-zA-Z0-9' | head -c 32)
+                    fi
+                    
                     echo "BOT_TOKEN=\"${input_token}\"" > /etc/wibutunnel/bot.conf
                     echo "CHAT_ID=\"${input_chatid}\"" >> /etc/wibutunnel/bot.conf
-                    systemctl restart wibutunnel-bot 2>/dev/null
-                    echo -e "${GREEN}Bot berhasil disimpan & direstart!${NC}"
+                    echo "WEBHOOK_SECRET=\"${WEBHOOK_SECRET}\"" >> /etc/wibutunnel/bot.conf
+                    
+                    # Set Webhook URL to Telegram API
+                    domain=$(cat /etc/xray/domain)
+                    curl -s -X POST "https://api.telegram.org/bot${input_token}/setWebhook" \
+                        -F "url=https://${domain}/telehook" \
+                        -F "secret_token=${WEBHOOK_SECRET}" >/dev/null 2>&1
+                    
+                    systemctl restart wibu-daemon 2>/dev/null
+                    systemctl restart telegram-webhook.socket 2>/dev/null
+                    echo -e "${GREEN}Bot berhasil disimpan, didaftarkan, & direstart!${NC}"
                 fi
                 ;;
             2)
-                systemctl enable wibutunnel-bot >/dev/null 2>&1
-                systemctl start wibutunnel-bot >/dev/null 2>&1
+                systemctl enable wibu-daemon telegram-webhook.socket >/dev/null 2>&1
+                systemctl start wibu-daemon telegram-webhook.socket >/dev/null 2>&1
                 echo -e "${GREEN}Bot Telegram berhasil dihidupkan!${NC}"
                 ;;
             3)
-                systemctl stop wibutunnel-bot >/dev/null 2>&1
-                systemctl disable wibutunnel-bot >/dev/null 2>&1
+                systemctl stop wibu-daemon telegram-webhook.socket telegram-webhook@*.service >/dev/null 2>&1
+                systemctl disable wibu-daemon telegram-webhook.socket >/dev/null 2>&1
                 echo -e "${YELLOW}Bot Telegram telah dimatikan!${NC}"
                 ;;
             0) exec m-setting ;;
