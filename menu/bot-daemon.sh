@@ -249,7 +249,7 @@ create_account() {
 delete_account() {
     local user=$1
     local proto=$2
-    if [[ ! "$user" =~ ^[a-zA-Z0-9_]+$ ]]; then return; fi
+    if [[ ! "$user" =~ ^[a-zA-Z0-9_-]+$ ]]; then return; fi
     
     if jq -e --arg u "$user" '[.inbounds[].settings.clients[]?.email, .inbounds[].settings.clients[]?.password] | index($u) == null' "$CONFIG_FILE" >/dev/null 2>&1; then
         send_msg "❌ <b>Gagal!</b>\nAkun <code>${user}</code> tidak ditemukan di database."
@@ -504,7 +504,7 @@ backup_vps() {
 detail_account() {
     local user=$1
     local target_proto=$2
-    if [[ ! "$user" =~ ^[a-zA-Z0-9_]+$ ]]; then return; fi
+    if [[ ! "$user" =~ ^[a-zA-Z0-9_-]+$ ]]; then return; fi
     
     local proto=""
     local uuid=""
