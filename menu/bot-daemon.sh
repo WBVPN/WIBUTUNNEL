@@ -40,13 +40,13 @@ send_msg() {
             --data-urlencode "disable_web_page_preview=true" \
             --data-urlencode "parse_mode=html" \
             --data-urlencode "text=${text}" \
-            --data-urlencode "reply_markup=${keyboard}" >> /etc/wibutunnel/tmp/bot_error.log 2>&1 &
+            --data-urlencode "reply_markup=${keyboard}" >> /etc/wibutunnel/tmp/bot_error.log 2>&1
     else
         curl -s --max-time 10 -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
             --data-urlencode "chat_id=${target_id}" \
             --data-urlencode "disable_web_page_preview=true" \
             --data-urlencode "parse_mode=html" \
-            --data-urlencode "text=${text}" >> /etc/wibutunnel/tmp/bot_error.log 2>&1 &
+            --data-urlencode "text=${text}" >> /etc/wibutunnel/tmp/bot_error.log 2>&1
     fi
 }
 
@@ -62,7 +62,7 @@ edit_msg() {
         --data-urlencode "disable_web_page_preview=true" \
         --data-urlencode "parse_mode=html" \
         --data-urlencode "text=${text}" \
-        --data-urlencode "reply_markup=${keyboard}" >> /etc/wibutunnel/tmp/bot_error.log 2>&1 &
+        --data-urlencode "reply_markup=${keyboard}" >> /etc/wibutunnel/tmp/bot_error.log 2>&1
 }
 
 format_online_users() {
