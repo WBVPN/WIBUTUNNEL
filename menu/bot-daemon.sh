@@ -1,5 +1,5 @@
 #!/bin/bash
-# WIBUTUNNEL TELEGRAM BOT DAEMON (BASH)
+# WIBUTUNNEL TELEGRAM BOT DAEMON (BASH) - v4.0 Kurumi
 # Seringan kapas, secepat kilat.
 
 BOT_CONF="/etc/wibutunnel/bot.conf"
@@ -12,8 +12,8 @@ touch $OFFSET_FILE
 # Utility function to send message
 send_msg() {
     local text=$(echo -e "$1")
-    local target_id="${SENDER_ID:-$CHAT_ID}"
     local keyboard="$2"
+    local target_id="${3:-${SENDER_ID:-$CHAT_ID}}"
     if [[ -n "$keyboard" ]]; then
         curl -s --max-time 10 -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
             --data-urlencode "chat_id=${target_id}" \
@@ -30,11 +30,27 @@ send_msg() {
     fi
 }
 
+edit_msg() {
+    local target_id="$1"
+    local msg_id="$2"
+    local text=$(echo -e "$3")
+    local keyboard="$4"
+    
+    curl -s --max-time 10 -X POST "https://api.telegram.org/bot${BOT_TOKEN}/editMessageText" \
+        --data-urlencode "chat_id=${target_id}" \
+        --data-urlencode "message_id=${msg_id}" \
+        --data-urlencode "disable_web_page_preview=true" \
+        --data-urlencode "parse_mode=html" \
+        --data-urlencode "text=${text}" \
+        --data-urlencode "reply_markup=${keyboard}" >> /etc/wibutunnel/tmp/bot_error.log 2>&1 &
+}
+
 format_online_users() {
     local raw_data="$1"
-    local MSG="🟢 <b>ONLINE USERS (LIVE)</b>
-━━━━━━━━━━━━━━━━━━━━
-"
+    local target_proto="$2"
+    local MSG="🟢 <b>ONLINE USERS (LIVE)</b>\n━━━━━━━━━━━━━━━━━━━━\n"
+    local count_users=0
+    
     while IFS="|" read -r usr count iplist; do
         local proto=""
         if grep -q "^${usr}:" /etc/xray/vless_exp.conf 2>/dev/null; then proto="VLESS"
@@ -42,28 +58,35 @@ format_online_users() {
         elif grep -q "^${usr}:" /etc/xray/trojan_exp.conf 2>/dev/null; then proto="TROJAN"
         else continue; fi
         
+        if [[ -n "$target_proto" && "$target_proto" != "ALL" && "$proto" != "$target_proto" ]]; then
+            continue
+        fi
+        
         IFS=',' read -ra ip_arr <<< "$iplist"
         local ip_limit=3
         local formatted_ips=""
         for ((i=0; i<${#ip_arr[@]} && i<ip_limit; i++)); do
             local clean_ip=$(echo "${ip_arr[$i]}" | tr -d ' ')
-            formatted_ips+="    • <code>${clean_ip}</code>
-"
+            formatted_ips+="    • <code>${clean_ip}</code>\n"
         done
         if [[ ${#ip_arr[@]} -gt $ip_limit ]]; then
             local sisa=$((${#ip_arr[@]} - ip_limit))
-            formatted_ips+="    <i>... (+ ${sisa} IP lainnya)</i>
-"
+            formatted_ips+="    <i>... (+ ${sisa} IP lainnya)</i>\n"
         fi
         
-        MSG+="👤 <b>${usr}</b> [<code>${proto}</code>]
- ├ 🌐 <b>Status:</b> ${count} Login Aktif
- └ 📡 <b>IP Address:</b>
-${formatted_ips}
-"
+        MSG+="👤 <b>${usr}</b> [<code>${proto}</code>]\n ├ 🌐 <b>Status:</b> ${count} Login Aktif\n └ 📡 <b>IP Address:</b>\n${formatted_ips}"
+        ((count_users++))
     done <<< "$raw_data"
+    
+    if [[ "$count_users" -eq 0 ]]; then
+        if [[ "$target_proto" == "ALL" ]]; then
+            MSG+="<i>Saat ini tidak ada user yang aktif.</i>\n"
+        else
+            MSG+="<i>Tidak ada user ${target_proto} yang aktif.</i>\n"
+        fi
+    fi
     MSG+="━━━━━━━━━━━━━━━━━━━━"
-    echo "$MSG"
+    echo -e "$MSG"
 }
 
 create_account() {
@@ -78,7 +101,7 @@ create_account() {
     if [[ ! "$limit_bw" =~ ^[0-9]+$ ]]; then limit_bw=0; fi
     
     if [[ -n "${user//[a-zA-Z0-9_-]/}" ]]; then
-        send_msg "❌ <b>Nama User Salah!</b>\nHanya boleh huruf, angka, dan strip (-).\nDebug: user='${user}', proto='${proto}', waktu='${hari}'"
+        send_msg "❌ <b>Nama User Salah!</b>\nHanya boleh huruf, angka, dan strip (-)."
         return
     fi
     if jq -e --arg u "$user" '[.inbounds[].settings.clients[]?.email, .inbounds[].settings.clients[]?.password] | index($u) != null' "$CONFIG_FILE" >/dev/null 2>&1; then
@@ -105,7 +128,7 @@ create_account() {
             tampil_exp=$(date -d "+${clean_hari} days" +"%Y-%m-%d")
         fi
     else
-        send_msg "❌ <b>Format Waktu Salah!</b>\nGunakan angka untuk hari, atau akhiran 'h' untuk jam, 'm' untuk menit (contoh: 30, 1h, 60m).\nDebug: hari='${hari}'"
+        send_msg "❌ <b>Format Waktu Salah!</b>\nGunakan angka untuk hari, atau akhiran 'h' untuk jam, 'm' untuk menit (contoh: 30, 1h, 60m)."
         return
     fi
     local link1=""
@@ -198,11 +221,13 @@ create_account() {
     fi
     pesan+="${THICKLINE}"
     
-    send_msg "$pesan"
+    local kb='{"inline_keyboard":[[{"text":"🔙 Back to '"${proto}"' Menu","callback_data":"menu_'"${proto,,}"'"}]]}'
+    send_msg "$pesan" "$kb"
 }
 
 delete_account() {
     local user=$1
+    local proto=$2
     if [[ ! "$user" =~ ^[a-zA-Z0-9_]+$ ]]; then return; fi
     
     if jq -e --arg u "$user" '[.inbounds[].settings.clients[]?.email, .inbounds[].settings.clients[]?.password] | index($u) == null' "$CONFIG_FILE" >/dev/null 2>&1; then
@@ -231,7 +256,10 @@ delete_account() {
     sed -i "/^${user}:/d" /etc/wibutunnel/user_usage.db 2>/dev/null
 
     systemctl restart xray >/dev/null 2>&1
-    send_msg "🗑️ <b>Berhasil!</b>\nAkun <code>${user}</code> telah dimusnahkan secara permanen."
+    
+    local kb=""
+    [[ -n "$proto" ]] && kb='{"inline_keyboard":[[{"text":"🔙 Back to '"${proto}"' Menu","callback_data":"menu_'"${proto,,}"'"}]]}'
+    send_msg "🗑️ <b>Berhasil!</b>\nAkun <code>${user}</code> telah dimusnahkan secara permanen." "$kb"
 }
 
 is_admin() {
@@ -250,6 +278,7 @@ is_admin() {
 renew_account() {
     local user=$1
     local hari=$2
+    local proto=$3
     if [[ ! "$hari" =~ ^[0-9]+$ || "$hari" -le 0 ]]; then
         send_msg "❌ <b>Format Hari Salah!</b>\nGunakan angka."
         return
@@ -290,17 +319,58 @@ renew_account() {
             tampil_exp=$(date -d "+${clean_hari} days" +"%Y-%m-%d")
         fi
     else
-        send_msg "❌ <b>Format Waktu Salah!</b>\nGunakan angka untuk hari, atau akhiran 'h' untuk jam, 'm' untuk menit (contoh: 30, 1h, 60m).\nDebug: hari='${hari}'"
+        send_msg "❌ <b>Format Waktu Salah!</b>\nGunakan angka untuk hari, atau akhiran 'h' untuk jam, 'm' untuk menit (contoh: 30, 1h, 60m)."
         return
     fi
     
     sed -i "s/^${user}:.*/${user}:${exp_date}/" "$exp_file"
     
-    send_msg "✅ <b>Berhasil Perpanjang Akun!</b>\n\n<b>User :</b> <code>${user}</code>\n<b>Ditambah :</b> ${hari}\n<b>Expired Baru :</b> <code>${tampil_exp}</code>"
+    local kb=""
+    [[ -n "$proto" ]] && kb='{"inline_keyboard":[[{"text":"🔙 Back to '"${proto}"' Menu","callback_data":"menu_'"${proto,,}"'"}]]}'
+    send_msg "✅ <b>Berhasil Perpanjang Akun!</b>\n\n<b>User :</b> <code>${user}</code>\n<b>Ditambah :</b> ${hari}\n<b>Expired Baru :</b> <code>${tampil_exp}</code>" "$kb"
+}
+
+change_limit() {
+    local user=$1
+    local limit_ip=$2
+    local limit_bw=$3
+    local proto=$4
+    
+    if [[ ! "$limit_ip" =~ ^[0-9]+$ || ! "$limit_bw" =~ ^[0-9]+$ ]]; then
+        send_msg "❌ <b>Format Limit Salah!</b>\nIP dan GB harus berupa angka."
+        return
+    fi
+    
+    if ! jq -e --arg u "$user" '[.inbounds[].settings.clients[]?.email, .inbounds[].settings.clients[]?.password] | index($u) != null' "$CONFIG_FILE" >/dev/null 2>&1; then
+        send_msg "❌ <b>Gagal!</b>\nAkun <code>${user}</code> tidak ditemukan."
+        return
+    fi
+    
+    # Update IP
+    if grep -q "^${user}:" /etc/wibutunnel/limit_ip.db; then
+        sed -i "s/^${user}:.*/${user}:${limit_ip}/" /etc/wibutunnel/limit_ip.db
+    else
+        echo "${user}:${limit_ip}" >> /etc/wibutunnel/limit_ip.db
+    fi
+    
+    # Update BW
+    if grep -q "^${user}:" /etc/wibutunnel/limit_bw.db; then
+        sed -i "s/^${user}:.*/${user}:${limit_bw}/" /etc/wibutunnel/limit_bw.db
+    else
+        echo "${user}:${limit_bw}" >> /etc/wibutunnel/limit_bw.db
+    fi
+    
+    local ip_str="Bebas"; [[ "$limit_ip" -ne 0 ]] && ip_str="${limit_ip} IP"
+    local bw_str="Unlimited"; [[ "$limit_bw" -ne 0 ]] && bw_str="${limit_bw} GB"
+    
+    local kb=""
+    [[ -n "$proto" ]] && kb='{"inline_keyboard":[[{"text":"🔙 Back to '"${proto}"' Menu","callback_data":"menu_'"${proto,,}"'"}]]}'
+    send_msg "✅ <b>Limit Berhasil Diubah!</b>\n\n<b>User :</b> <code>${user}</code>\n<b>Limit IP :</b> ${ip_str}\n<b>Limit Kuota :</b> ${bw_str}" "$kb"
 }
 
 list_account() {
-    local msg="━━━━━━━━━━━━━━━━━━━━\n 📋 <b>LIST AKUN AKTIF</b>\n━━━━━━━━━━━━━━━━━━━━\n"
+    local target_proto="$1"
+    local msg="━━━━━━━━━━━━━━━━━━━━\n 📋 <b>LIST AKUN ${target_proto}</b>\n━━━━━━━━━━━━━━━━━━━━\n"
     
     get_limits() {
         local u=$1
@@ -311,44 +381,43 @@ list_account() {
         echo "IP: ${ip} | BW: ${bw}"
     }
 
-    msg+="\n🔹 <b>VLESS:</b>\n"
-    local c_vless=0
-    while IFS=":" read -r usr exp; do
-        [[ -z "$usr" || "$usr" == dummy* ]] && continue
-        local lmt=$(get_limits "$usr")
-        msg+=" ├ <code>${usr}</code> (Exp: $(echo "$exp" | awk '{print $1}') | ${lmt})\n"
-        ((c_vless++))
-    done < /etc/xray/vless_exp.conf
-    [[ "$c_vless" -eq 0 ]] && msg+=" └ <i>Kosong</i>\n"
-    
-    msg+="\n🔹 <b>VMESS:</b>\n"
-    local c_vmess=0
-    while IFS=":" read -r usr exp; do
-        [[ -z "$usr" || "$usr" == dummy* ]] && continue
-        local lmt=$(get_limits "$usr")
-        msg+=" ├ <code>${usr}</code> (Exp: $(echo "$exp" | awk '{print $1}') | ${lmt})\n"
-        ((c_vmess++))
-    done < /etc/xray/vmess_exp.conf
-    [[ "$c_vmess" -eq 0 ]] && msg+=" └ <i>Kosong</i>\n"
-    
-    msg+="\n🔹 <b>TROJAN:</b>\n"
-    local c_trojan=0
-    while IFS=":" read -r usr exp; do
-        [[ -z "$usr" || "$usr" == dummy* ]] && continue
-        local lmt=$(get_limits "$usr")
-        msg+=" ├ <code>${usr}</code> (Exp: $(echo "$exp" | awk '{print $1}') | ${lmt})\n"
-        ((c_trojan++))
-    done < /etc/xray/trojan_exp.conf
-    [[ "$c_trojan" -eq 0 ]] && msg+=" └ <i>Kosong</i>\n"
+    if [[ "$target_proto" == "VLESS" ]]; then
+        local c=0
+        while IFS=":" read -r usr exp; do
+            [[ -z "$usr" || "$usr" == dummy* ]] && continue
+            local lmt=$(get_limits "$usr")
+            msg+=" ├ <code>${usr}</code> (Exp: $(echo "$exp" | awk '{print $1}') | ${lmt})\n"
+            ((c++))
+        done < /etc/xray/vless_exp.conf
+        [[ "$c" -eq 0 ]] && msg+=" └ <i>Kosong</i>\n"
+    elif [[ "$target_proto" == "VMESS" ]]; then
+        local c=0
+        while IFS=":" read -r usr exp; do
+            [[ -z "$usr" || "$usr" == dummy* ]] && continue
+            local lmt=$(get_limits "$usr")
+            msg+=" ├ <code>${usr}</code> (Exp: $(echo "$exp" | awk '{print $1}') | ${lmt})\n"
+            ((c++))
+        done < /etc/xray/vmess_exp.conf
+        [[ "$c" -eq 0 ]] && msg+=" └ <i>Kosong</i>\n"
+    elif [[ "$target_proto" == "TROJAN" ]]; then
+        local c=0
+        while IFS=":" read -r usr exp; do
+            [[ -z "$usr" || "$usr" == dummy* ]] && continue
+            local lmt=$(get_limits "$usr")
+            msg+=" ├ <code>${usr}</code> (Exp: $(echo "$exp" | awk '{print $1}') | ${lmt})\n"
+            ((c++))
+        done < /etc/xray/trojan_exp.conf
+        [[ "$c" -eq 0 ]] && msg+=" └ <i>Kosong</i>\n"
+    fi
     
     msg+="\n━━━━━━━━━━━━━━━━━━━━"
-    send_msg "$msg"
+    local kb='{"inline_keyboard":[[{"text":"🔙 Back to '"${target_proto}"' Menu","callback_data":"menu_'"${target_proto,,}"'"}]]}'
+    send_msg "$msg" "$kb"
 }
 
 backup_vps() {
     local target_id="${SENDER_ID:-$CHAT_ID}"
     
-    # Send loading message and capture message_id
     local load_resp=$(curl -s --max-time 10 -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
         -F "chat_id=${target_id}" \
         -F "disable_web_page_preview=true" \
@@ -396,7 +465,6 @@ backup_vps() {
         
         rm -f "$backup_file"
         
-        # Hapus pesan loading
         if [[ -n "$load_msg_id" && "$load_msg_id" != "null" ]]; then
             curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/deleteMessage" \
                 -F "chat_id=${target_id}" \
@@ -404,7 +472,6 @@ backup_vps() {
         fi
     else
         send_msg "❌ <b>Gagal membuat backup!</b>"
-        # Tetap hapus pesan loading walau gagal
         if [[ -n "$load_msg_id" && "$load_msg_id" != "null" ]]; then
             curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/deleteMessage" \
                 -F "chat_id=${target_id}" \
@@ -415,6 +482,7 @@ backup_vps() {
 
 detail_account() {
     local user=$1
+    local target_proto=$2
     if [[ ! "$user" =~ ^[a-zA-Z0-9_]+$ ]]; then return; fi
     
     local proto=""
@@ -514,7 +582,97 @@ detail_account() {
     fi
     pesan+="${THICKLINE}"
     
-    send_msg "$pesan"
+    local kb=""
+    [[ -n "$target_proto" ]] && kb='{"inline_keyboard":[[{"text":"🔙 Back to '"${target_proto}"' Menu","callback_data":"menu_'"${target_proto,,}"'"}]]}'
+    send_msg "$pesan" "$kb"
+}
+
+check_login() {
+    local target_proto="$1"
+    LOG_FILE="/var/log/xray/access.log"
+    if [[ ! -s "$LOG_FILE" ]]; then
+        send_msg "❌ <b>Belum ada data log aktif (kosong).</b>"
+        return
+    fi
+    
+    THRESH=$(date -d '3 minutes ago' +'%Y/%m/%d %H:%M:%S')
+    LOGIN_DATA=$(awk -v thresh="$THRESH" '{ if($1 ~ /^[0-9]{4}\/[0-9]{2}\/[0-9]{2}$/ && $1" "$2 < thresh) exit; if(/accepted/){ for(i=1;i<=NF;i++){ if($i=="accepted"){ ip=$(i-1); sub(/^(tcp|udp):/, "", ip); sub(/:[0-9]+$/, "", ip); break } }; email=$NF; gsub(/[^a-zA-Z0-9_-]/, "", email); if(email != "dummy" && email != "api" && ip != "127.0.0.1" && ip != "") { if (!seen[email, ip]++) { ips[email] = (ips[email] ? ips[email]", " : "") ip; counts[email]++ } } } } END { for (e in ips) print e "|" counts[e] "|" ips[e] }' <(tac "$LOG_FILE" 2>/dev/null) 2>/dev/null)
+
+    if [[ -z "$LOGIN_DATA" ]]; then
+        local msg="🟢 <b>ONLINE USERS (LIVE)</b>\n━━━━━━━━━━━━━━━━━━━━\n<i>Saat ini tidak ada user yang aktif.</i>\n━━━━━━━━━━━━━━━━━━━━"
+        local kb='{"inline_keyboard":[[{"text":"🔙 Back to '"${target_proto}"' Menu","callback_data":"menu_'"${target_proto,,}"'"}]]}'
+        send_msg "$msg" "$kb"
+    else
+        LOG_MSG=$(format_online_users "$LOGIN_DATA" "$target_proto")
+        local kb='{"inline_keyboard":[[{"text":"🔙 Back to '"${target_proto}"' Menu","callback_data":"menu_'"${target_proto,,}"'"}]]}'
+        send_msg "$LOG_MSG" "$kb"
+    fi
+}
+
+show_main_menu() {
+    local target="$1"
+    local msg_id="$2"
+    local text="━━━━━━━━━━━━━━━━━━━━\n 🤖 <b>WIBUTUNNEL PANEL BOT</b>\n━━━━━━━━━━━━━━━━━━━━\n\nSelamat datang di Panel Kendali VPS. Silakan pilih menu di bawah ini:"
+    
+    local kb='{"inline_keyboard":['
+    kb+='[{"text":"🔹 VLESS","callback_data":"menu_vless"},{"text":"🔸 VMESS","callback_data":"menu_vmess"}],'
+    kb+='[{"text":"♦️ TROJAN","callback_data":"menu_trojan"},{"text":"⚙️ SYSTEM","callback_data":"menu_system"}]'
+    kb+=']}'
+    
+    if [[ -n "$msg_id" ]]; then
+        edit_msg "$target" "$msg_id" "$text" "$kb"
+    else
+        send_msg "$text" "$kb" "$target"
+    fi
+}
+
+show_proto_menu() {
+    local target="$1"
+    local msg_id="$2"
+    local proto="$3"
+    
+    if [[ "$proto" == "SYSTEM" ]]; then
+        local text="⚙️ <b>MENU SYSTEM</b>\nSilakan pilih opsi:"
+        local kb='{"inline_keyboard":['
+        kb+='[{"text":"📊 Cek Trafik Global","callback_data":"act_trafik_ALL"}],'
+        kb+='[{"text":"🟢 Cek Login Global","callback_data":"act_login_ALL"}],'
+        kb+='[{"text":"💻 Info VPS","callback_data":"act_info_ALL"}],'
+        kb+='[{"text":"📦 Backup VPS","callback_data":"act_backup_ALL"}],'
+        kb+='[{"text":"🔙 Back","callback_data":"main_menu"}]'
+        kb+=']}'
+        edit_msg "$target" "$msg_id" "$text" "$kb"
+        return
+    fi
+    
+    local text="🛡 <b>MENU ${proto}</b>\nSilakan pilih opsi manajemen akun:"
+    local kb='{"inline_keyboard":['
+    kb+='[{"text":"➕ Create","callback_data":"act_create_'"$proto"'"},{"text":"⏱ Trial","callback_data":"act_trial_'"$proto"'"}],'
+    kb+='[{"text":"♻️ Renew","callback_data":"act_renew_'"$proto"'"},{"text":"🗑 Delete","callback_data":"act_del_'"$proto"'"}],'
+    kb+='[{"text":"🟢 Cek Login","callback_data":"act_login_'"$proto"'"},{"text":"📋 List Akun","callback_data":"act_list_'"$proto"'"}],'
+    kb+='[{"text":"🎛 Limit & BW","callback_data":"act_limit_'"$proto"'"},{"text":"🔎 Detail Link","callback_data":"act_detail_'"$proto"'"}],'
+    kb+='[{"text":"🔙 Back","callback_data":"main_menu"}]'
+    kb+=']}'
+    
+    edit_msg "$target" "$msg_id" "$text" "$kb"
+}
+
+ask_input() {
+    local target="$1"
+    local action="$2"
+    local proto="$3"
+    local text=""
+    
+    case "$action" in
+        create) text="✨ <b>CREATE ${proto}</b>\n\nKirim data dengan format:\n<code>[username] [hari] [limit_ip] [limit_gb]</code>\n\nContoh: <code>budi 30 2 10</code>\n<i>(Kirim 0 untuk IP/GB unlimited)</i>" ;;
+        trial) text="⏱ <b>TRIAL ${proto}</b>\n\nBerapa jam atau berapa menit?\n\nKirim angka dengan akhiran <b>h</b> (jam) atau <b>m</b> (menit).\nContoh: <code>1h</code> atau <code>30m</code>\n\n<i>*Quota otomatis 1 GB & IP Unlimited.</i>" ;;
+        del) text="🗑 <b>DELETE ${proto}</b>\n\nKirim <b>Username</b> yang ingin dihapus:\nContoh: <code>budi</code>" ;;
+        renew) text="♻️ <b>RENEW ${proto}</b>\n\nKirim data dengan format:\n<code>[username] [tambahan_hari]</code>\n\nContoh: <code>budi 30</code>" ;;
+        limit) text="🎛 <b>UBAH LIMIT ${proto}</b>\n\nKirim data dengan format:\n<code>[username] [limit_ip_baru] [limit_gb_baru]</code>\n\nContoh: <code>budi 2 5</code>\n<i>(Kirim 0 untuk unlimited)</i>" ;;
+        detail) text="🔎 <b>DETAIL AKUN ${proto}</b>\n\nKirim <b>Username</b>:\nContoh: <code>budi</code>" ;;
+    esac
+    
+    local kb='{"inline_keyboard":[[{"text":"❌ Batal","callback_data":"menu_'"${proto,,}"'"}]]}'
+    send_msg "$text" "$kb" "$target"
 }
 
 while true; do
@@ -533,281 +691,137 @@ while true; do
         if [[ "$MSG_COUNT" -gt 0 ]]; then
             for (( i=0; i<$MSG_COUNT; i++ )); do
                 UPDATE_ID=$(echo "$UPDATES" | jq -r ".result[$i].update_id")
-                SENDER_ID=$(echo "$UPDATES" | jq -r ".result[$i].message.chat.id")
                 
-                # Handle direct message
-                TEXT=$(echo "$UPDATES" | jq -r ".result[$i].message.text // empty")
-                TEXT="${TEXT//$'\r'/}"
-                
-                echo "[$(date)] RECV TEXT: $TEXT from $SENDER_ID (Admin: $CHAT_ID)" >> /etc/wibutunnel/tmp/bot_error.log
-
-                if is_admin "$SENDER_ID"; then
-                    CMD=$(echo "$TEXT" | awk '{print $1}')
-                    ARG1=$(echo "$TEXT" | awk '{print $2}')
-                    ARG2=$(echo "$TEXT" | awk '{print $3}')
-                    ARG3=$(echo "$TEXT" | awk '{print $4}')
-                    ARG4=$(echo "$TEXT" | awk '{print $5}')
-                    
-                    case "$CMD" in
-                        /start|/menu|/help)
-                            MSG="━━━━━━━━━━━━━━━━━━━━\n 🤖 <b>WIBUTUNNEL PANEL BOT</b>\n━━━━━━━━━━━━━━━━━━━━\n\nSelamat datang di Panel Kendali VPS. Silakan pilih menu di bawah ini:"
-                            
-                            kb='{"inline_keyboard":['
-                            kb+='[{"text":"➕ Create Account","callback_data":"cmd_create"},{"text":"⚙️ Kelola Akun","callback_data":"cmd_manage"}],'
-                            kb+='[{"text":"📋 List Akun","callback_data":"cmd_list"},{"text":"📊 Cek Trafik","callback_data":"cmd_trafik"}],'
-                            kb+='[{"text":"🟢 Cek Login","callback_data":"cmd_login"},{"text":"💻 Info VPS","callback_data":"cmd_info"}],'
-                            kb+='[{"text":"📦 Backup","callback_data":"cmd_backup"}]'
-                            kb+=']}'
-                            
-                            send_msg "$MSG" "$kb"
-                            ;;
-                        /admin)
-                            if [[ "$SENDER_ID" != "$CHAT_ID" ]]; then
-                                send_msg "❌ <b>Akses Ditolak!</b>\nHanya Admin Utama (Owner) yang bisa mengatur akses admin."
-                            elif [[ "$ARG1" == "add" && -n "$ARG2" ]]; then
-                                echo "$ARG2" >> /etc/wibutunnel/bot_admins.db
-                                send_msg "✅ <b>Berhasil!</b>\nID Telegram <code>$ARG2</code> telah ditambahkan sebagai admin bot."
-                            elif [[ "$ARG1" == "del" && -n "$ARG2" ]]; then
-                                sed -i "/^${ARG2}$/d" /etc/wibutunnel/bot_admins.db 2>/dev/null
-                                send_msg "🗑️ <b>Berhasil!</b>\nID Telegram <code>$ARG2</code> telah dihapus dari admin bot."
-                            elif [[ "$ARG1" == "list" ]]; then
-                                adm_msg="📋 <b>Daftar Admin Bot:</b>\n1. <code>$CHAT_ID</code> (Utama)\n"
-                                if [[ -f /etc/wibutunnel/bot_admins.db ]]; then
-                                    i=2
-                                    while read -r adm; do
-                                        [[ -z "$adm" ]] && continue
-                                        adm_msg+="${i}. <code>$adm</code>\n"
-                                        ((i++))
-                                    done < /etc/wibutunnel/bot_admins.db
-                                fi
-                                send_msg "$adm_msg"
-                            else
-                                send_msg "⚙️ <b>Menu Admin Multi-User:</b>\n├ <code>/admin add [ID_Telegram]</code>\n├ <code>/admin del [ID_Telegram]</code>\n└ <code>/admin list</code>\n\n<i>Keterangan: Minta rekan Anda mengecek ID Telegram mereka ke @userinfobot</i>"
-                            fi
-                            ;;
-                        /vless)
-                            [[ -n "$ARG1" && -n "$ARG2" ]] && create_account "VLESS" "$ARG1" "$ARG2" "$ARG3" "$ARG4" || send_msg "❌ <b>Format Salah!</b>\nGunakan: <code>/vless nama_user 30</code>"
-                            ;;
-                        /vmess)
-                            [[ -n "$ARG1" && -n "$ARG2" ]] && create_account "VMESS" "$ARG1" "$ARG2" "$ARG3" "$ARG4" || send_msg "❌ <b>Format Salah!</b>\nGunakan: <code>/vmess nama_user 30</code>"
-                            ;;
-                        /trojan)
-                            [[ -n "$ARG1" && -n "$ARG2" ]] && create_account "TROJAN" "$ARG1" "$ARG2" "$ARG3" "$ARG4" || send_msg "❌ <b>Format Salah!</b>\nGunakan: <code>/trojan nama_user 30</code>"
-                            ;;
-                        /trialvless|/trialvmess|/trialtrojan)
-                            tr_proto=$(echo "$CMD" | sed 's/\/trial//g' | tr 'a-z' 'A-Z')
-                            tr_waktu=${ARG1:-1h}
-                            tr_bw=${ARG2:-1}
-                            if [[ ! "$tr_bw" =~ ^[0-9]+$ ]]; then tr_bw=1; fi
-                            
-                            tr_user="trial-$(tr -dc 'a-z0-9' < /dev/urandom | head -c 4)"
-                            create_account "$tr_proto" "$tr_user" "$tr_waktu" "1" "$tr_bw"
-                            ;;
-                        /hapus)
-                            [[ -n "$ARG1" ]] && delete_account "$ARG1" || send_msg "❌ <b>Format Salah!</b>\nGunakan: <code>/hapus nama_user</code>"
-                            ;;
-                        /renew)
-                            [[ -n "$ARG1" && -n "$ARG2" ]] && renew_account "$ARG1" "$ARG2" || send_msg "❌ <b>Format Salah!</b>\nGunakan: <code>/renew nama_user 30</code>"
-                            ;;
-                        /list)
-                            list_account
-                            ;;
-                        /detail)
-                            [[ -n "$ARG1" ]] && detail_account "$ARG1" || send_msg "❌ <b>Format Salah!</b>\nGunakan: <code>/detail nama_user</code>"
-                            ;;
-                        /backup)
-                            backup_vps
-                            ;;
-                        /info)
-                            IP=$(curl -sS --max-time 3 ipv4.icanhazip.com 2>/dev/null)
-                            UPTIME=$(uptime -p | cut -d' ' -f2-)
-                            RAM=$(free -m | awk '/Mem:/ {print $3" MB / "$2" MB"}')
-                            CPU=$(top -bn1 | grep "Cpu(s)" | sed "s/.*, *\([0-9.]*\)%* id.*/\1/" | awk '{print 100 - $1}')
-                            DISK=$(df -h / | awk 'NR==2 {print $3" / "$2" ("$5")"}')
-                            OS=$(cat /etc/os-release | grep -w PRETTY_NAME | cut -d= -f2 | tr -d '"')
-                            
-                            INFO_MSG="💻 <b>INFORMASI VPS SERVER</b>\n"
-                            INFO_MSG+="━━━━━━━━━━━━━━━━━━━━\n"
-                            INFO_MSG+="<b>🖥 OS     :</b> <code>${OS}</code>\n"
-                            INFO_MSG+="<b>🌐 IP     :</b> <code>${IP}</code>\n"
-                            INFO_MSG+="<b>⏱ Uptime :</b> <code>${UPTIME}</code>\n"
-                            INFO_MSG+="<b>🧠 RAM    :</b> <code>${RAM}</code>\n"
-                            INFO_MSG+="<b>⚡️ CPU    :</b> <code>${CPU}%</code>\n"
-                            INFO_MSG+="<b>💾 Disk   :</b> <code>${DISK}</code>\n"
-                            INFO_MSG+="━━━━━━━━━━━━━━━━━━━━"
-                            send_msg "$INFO_MSG"
-                            ;;
-                        /lock|/unlock)
-                            if [[ -z "$ARG1" ]]; then
-                                send_msg "❌ <b>Format Salah!</b>\nGunakan: <code>$CMD nama_user</code>"
-                            else
-                                DB_LOCK="/etc/wibutunnel/locked_users.db"
-                                if [[ "$CMD" == "/lock" ]]; then
-                                    if grep -q "^${ARG1}:" "$DB_LOCK" 2>/dev/null; then
-                                        send_msg "⚠️ Akun <code>$ARG1</code> sudah dalam status TERKUNCI."
-                                    elif jq -e --arg u "$ARG1" '[.inbounds[].settings.clients[]?.email, .inbounds[].settings.clients[]?.password] | index($u) != null' "$CONFIG_FILE" >/dev/null 2>&1; then
-                                        jq --arg user "$ARG1" '(.routing.rules[] | select(.user != null and .outboundTag == "blocked") | .user) |= (. + [$user] | unique)' "$CONFIG_FILE" > /etc/wibutunnel/tmp/xray_tmp.json && mv /etc/wibutunnel/tmp/xray_tmp.json "$CONFIG_FILE"
-                                        echo "$ARG1:$(date +%s):0:LOCK" >> "$DB_LOCK"
-                                        systemctl restart xray >/dev/null 2>&1
-                                        send_msg "🔒 <b>Berhasil!</b>\nAkun <code>$ARG1</code> telah DIKUNCI (Dipindahkan ke Recovery)."
-                                    else
-                                        send_msg "❌ <b>Gagal!</b>\nAkun <code>$ARG1</code> tidak ditemukan."
-                                    fi
-                                elif [[ "$CMD" == "/unlock" ]]; then
-                                    if grep -q "^${ARG1}:" "$DB_LOCK" 2>/dev/null; then
-                                        jq --arg u "$ARG1" '(.routing.rules[] | select(.user != null and .outboundTag == "blocked") | .user) |= map(select(. != $u))' "$CONFIG_FILE" > /etc/wibutunnel/tmp/xray_tmp.json && mv /etc/wibutunnel/tmp/xray_tmp.json "$CONFIG_FILE"
-                                        sed -i "/^${ARG1}:/d" "$DB_LOCK" 2>/dev/null
-                                        systemctl restart xray >/dev/null 2>&1
-                                        send_msg "🔓 <b>Berhasil!</b>\nAkun <code>$ARG1</code> telah DI-UNLOCK dan dapat digunakan kembali."
-                                    else
-                                        send_msg "⚠️ Akun <code>$ARG1</code> tidak dalam status terkunci."
-                                    fi
-                                fi
-                            fi
-                            ;;
-                        /cek_trafik)
-                            if [[ -s "/etc/wibutunnel/user_usage.db" ]]; then
-                                TRF_MSG="📊 <b>TOP 10 PEMAKAIAN QUOTA</b>\n━━━━━━━━━━━━━━━━━━━━\n"
-                                idx=1
-                                while IFS=":" read -r bytes usr; do
-                                    if [[ "$bytes" -ge 1073741824 ]]; then
-                                        gb=$(awk -v b="$bytes" 'BEGIN { printf "%.2f", b / 1073741824 }')
-                                        vol="${gb} GB"
-                                    elif [[ "$bytes" -ge 1048576 ]]; then
-                                        mb=$(awk -v b="$bytes" 'BEGIN { printf "%.2f", b / 1048576 }')
-                                        vol="${mb} MB"
-                                    elif [[ "$bytes" -ge 1024 ]]; then
-                                        kb=$(awk -v b="$bytes" 'BEGIN { printf "%.2f", b / 1024 }')
-                                        vol="${kb} KB"
-                                    else
-                                        vol="${bytes} Bytes"
-                                    fi
-                                    if grep -q "^${usr}:" /etc/xray/vless_exp.conf 2>/dev/null; then proto="VLESS"
-                                    elif grep -q "^${usr}:" /etc/xray/vmess_exp.conf 2>/dev/null; then proto="VMESS"
-                                    elif grep -q "^${usr}:" /etc/xray/trojan_exp.conf 2>/dev/null; then proto="TROJAN"
-                                    else continue
-                                    fi
-                                    TRF_MSG+="<b>${idx}.</b> <code>${usr}</code> [${proto}] : ${vol}\n"
-                                    ((idx++))
-                                    [[ $idx -gt 10 ]] && break
-                                done < <(awk -F':' '{ 
-                                    if ($1 ~ /^(vless|vmess|trojan)-(ws|grpc)-(tls|ntls)$/ || $1 ~ /^(vless|vmess|trojan)-grpc$/ || $1 == "api" || $1 == "direct" || $1 == "blocked") next;
-                                    down=($2=="null"||$2=="")?0:$2; 
-                                    up=($3=="null"||$3=="")?0:$3; 
-                                    print (down+up)":"$1 
-                                }' /etc/wibutunnel/user_usage.db 2>/dev/null | sort -t: -k1 -nr)
-                                TRF_MSG+="━━━━━━━━━━━━━━━━━━━━"
-                                send_msg "$TRF_MSG"
-                            else
-                                send_msg "📊 <b>Belum ada data trafik pemakaian.</b>"
-                            fi
-                            ;;
-                        /cek_login)
-                            LOG_FILE="/var/log/xray/access.log"
-                            if [[ ! -s "$LOG_FILE" ]]; then
-                                send_msg "❌ <b>Belum ada data log aktif (kosong).</b>"
-                                continue
-                            fi
-                            
-                            # [MATA ELANG V2 - NEW LOGIC] Deteksi real IP via Log 3 Menit (Support Cloudflare/CDN)
-                            THRESH=$(date -d '3 minutes ago' +'%Y/%m/%d %H:%M:%S')
-                            LOGIN_DATA=$(awk -v thresh="$THRESH" '{ if($1 ~ /^[0-9]{4}\/[0-9]{2}\/[0-9]{2}$/ && $1" "$2 < thresh) exit; if(/accepted/){ for(i=1;i<=NF;i++){ if($i=="accepted"){ ip=$(i-1); sub(/^(tcp|udp):/, "", ip); sub(/:[0-9]+$/, "", ip); break } }; email=$NF; gsub(/[^a-zA-Z0-9_-]/, "", email); if(email != "dummy" && email != "api" && ip != "127.0.0.1" && ip != "") { if (!seen[email, ip]++) { ips[email] = (ips[email] ? ips[email]", " : "") ip; counts[email]++ } } } } END { for (e in ips) print e "|" counts[e] "|" ips[e] }' <(tac "$LOG_FILE" 2>/dev/null) 2>/dev/null)
-
-                            if [[ -z "$LOGIN_DATA" ]]; then
-                                send_msg "🟢 <b>ONLINE USERS (LIVE)</b>\n━━━━━━━━━━━━━━━━━━━━\n<i>Saat ini tidak ada user yang aktif.</i>\n━━━━━━━━━━━━━━━━━━━━"
-                            else
-                                LOG_MSG=$(format_online_users "$LOGIN_DATA")
-                                send_msg "$LOG_MSG"
-                            fi
-                            ;;
-                    esac
-                fi
-                
-                # Handle Callback Queries
+                # Check for Callback Query
                 CB_ID=$(echo "$UPDATES" | jq -r ".result[$i].callback_query.id // empty")
                 if [[ -n "$CB_ID" ]]; then
                     SENDER_ID=$(echo "$UPDATES" | jq -r ".result[$i].callback_query.message.chat.id")
+                    MSG_ID=$(echo "$UPDATES" | jq -r ".result[$i].callback_query.message.message_id")
                     DATA=$(echo "$UPDATES" | jq -r ".result[$i].callback_query.data // empty")
+                    
                     curl -s "https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery?callback_query_id=${CB_ID}" >/dev/null &
                     
                     if is_admin "$SENDER_ID"; then
-                        case "$DATA" in
-                            cmd_list) list_account ;;
-                            cmd_trafik) TEXT="/cek_trafik"; CMD="/cek_trafik" ;; # Trigger text parsing below or call directly
-                            cmd_login) TEXT="/cek_login"; CMD="/cek_login" ;;
-                            cmd_info) TEXT="/info"; CMD="/info" ;;
-                            cmd_backup) backup_vps ;;
-                            cmd_create)
-                                msg_create="✨ <b>Cara Membuat Akun:</b>\nKetik perintah berikut di chat:\n\n"
-                                msg_create+="<code>/vless [nama] [hari] [ip] [gb]</code>\n"
-                                msg_create+="<code>/vmess [nama] [hari] [ip] [gb]</code>\n"
-                                msg_create+="<code>/trojan [nama] [hari] [ip] [gb]</code>\n\n"
-                                msg_create+="<b>Contoh:</b> <code>/vless budi 30 2 10</code>\n"
-                                msg_create+="<b>Contoh Trial:</b> <code>/trialvless 1h 1</code>"
-                                send_msg "$msg_create"
-                                ;;
-                            cmd_manage)
-                                msg_manage="⚙️ <b>Cara Kelola Akun:</b>\nKetik perintah berikut di chat:\n\n"
-                                msg_manage+="<b>Hapus:</b> <code>/hapus [nama]</code>\n"
-                                msg_manage+="<b>Perpanjang:</b> <code>/renew [nama] [hari]</code>\n"
-                                msg_manage+="<b>Cek Link:</b> <code>/detail [nama]</code>\n"
-                                msg_manage+="<b>Kunci (Lock):</b> <code>/lock [nama]</code>\n"
-                                msg_manage+="<b>Buka (Unlock):</b> <code>/unlock [nama]</code>\n"
-                                send_msg "$msg_manage"
-                                ;;
-                        esac
-                        
-                        # Hack to reuse existing commands for simple ones
-                        if [[ "$DATA" == "cmd_trafik" || "$DATA" == "cmd_login" || "$DATA" == "cmd_info" ]]; then
-                            # Copy from above
-                            if [[ "$DATA" == "cmd_info" ]]; then
-                                IP=$(curl -sS --max-time 3 ipv4.icanhazip.com 2>/dev/null)
-                                UPTIME=$(uptime -p | cut -d' ' -f2-)
-                                RAM=$(free -m | awk '/Mem:/ {print $3" MB / "$2" MB"}')
-                                CPU=$(top -bn1 | grep "Cpu(s)" | sed "s/.*, *\([0-9.]*\)%* id.*/\1/" | awk '{print 100 - $1}')
-                                DISK=$(df -h / | awk 'NR==2 {print $3" / "$2" ("$5")"}')
-                                OS=$(grep -w PRETTY_NAME /etc/os-release | cut -d= -f2 | tr -d '"')
-                                INFO_MSG="💻 <b>INFORMASI VPS SERVER</b>\n━━━━━━━━━━━━━━━━━━━━\n<b>🖥 OS     :</b> <code>${OS}</code>\n<b>🌐 IP     :</b> <code>${IP}</code>\n<b>⏱ Uptime :</b> <code>${UPTIME}</code>\n<b>🧠 RAM    :</b> <code>${RAM}</code>\n<b>⚡️ CPU    :</b> <code>${CPU}%</code>\n<b>💾 Disk   :</b> <code>${DISK}</code>\n━━━━━━━━━━━━━━━━━━━━"
-                                send_msg "$INFO_MSG"
-                            elif [[ "$DATA" == "cmd_trafik" ]]; then
-                                if [[ -s "/etc/wibutunnel/user_usage.db" ]]; then
-                                    TRF_MSG="📊 <b>TOP 10 PEMAKAIAN QUOTA</b>\n━━━━━━━━━━━━━━━━━━━━\n"
-                                    idx=1
-                                    while IFS=":" read -r bytes usr; do
-                                        if [[ "$bytes" -ge 1073741824 ]]; then gb=$(awk -v b="$bytes" 'BEGIN { printf "%.2f", b / 1073741824 }'); vol="${gb} GB"
-                                        elif [[ "$bytes" -ge 1048576 ]]; then mb=$(awk -v b="$bytes" 'BEGIN { printf "%.2f", b / 1048576 }'); vol="${mb} MB"
-                                        elif [[ "$bytes" -ge 1024 ]]; then kb=$(awk -v b="$bytes" 'BEGIN { printf "%.2f", b / 1024 }'); vol="${kb} KB"
-                                        else vol="${bytes} Bytes"; fi
-                                        if grep -q "^${usr}:" /etc/xray/vless_exp.conf 2>/dev/null; then proto="VLESS"; elif grep -q "^${usr}:" /etc/xray/vmess_exp.conf 2>/dev/null; then proto="VMESS"; elif grep -q "^${usr}:" /etc/xray/trojan_exp.conf 2>/dev/null; then proto="TROJAN"; else continue; fi
-                                        TRF_MSG+="<b>${idx}.</b> <code>${usr}</code> [${proto}] : ${vol}\n"
-                                        ((idx++)); [[ $idx -gt 10 ]] && break
-                                    done < <(awk -F':' '{ if ($1 ~ /^(vless|vmess|trojan)-(ws|grpc)-(tls|ntls)$/ || $1 ~ /^(vless|vmess|trojan)-grpc$/ || $1 == "api" || $1 == "direct" || $1 == "blocked") next; down=($2=="null"||$2=="")?0:$2; up=($3=="null"||$3=="")?0:$3; print (down+up)":"$1 }' /etc/wibutunnel/user_usage.db 2>/dev/null | sort -t: -k1 -nr)
-                                    TRF_MSG+="━━━━━━━━━━━━━━━━━━━━"
-                                    send_msg "$TRF_MSG"
-                                else
-                                    send_msg "📊 <b>Belum ada data trafik pemakaian.</b>"
-                                fi
-                            elif [[ "$DATA" == "cmd_login" ]]; then
-                                LOG_FILE="/var/log/xray/access.log"
-                                if [[ ! -s "$LOG_FILE" ]]; then send_msg "❌ <b>Belum ada data log aktif (kosong).</b>"; else
-                                    # [MATA ELANG V2 - NEW LOGIC] Deteksi real IP via Log 3 Menit (Support Cloudflare/CDN)
-                                    THRESH=$(date -d '3 minutes ago' +'%Y/%m/%d %H:%M:%S')
-                                    LOGIN_DATA=$(awk -v thresh="$THRESH" '{ if($1 ~ /^[0-9]{4}\/[0-9]{2}\/[0-9]{2}$/ && $1" "$2 < thresh) exit; if(/accepted/){ for(i=1;i<=NF;i++){ if($i=="accepted"){ ip=$(i-1); sub(/^(tcp|udp):/, "", ip); sub(/:[0-9]+$/, "", ip); break } }; email=$NF; gsub(/[^a-zA-Z0-9_-]/, "", email); if(email != "dummy" && email != "api" && ip != "127.0.0.1" && ip != "") { if (!seen[email, ip]++) { ips[email] = (ips[email] ? ips[email]", " : "") ip; counts[email]++ } } } } END { for (e in ips) print e "|" counts[e] "|" ips[e] }' <(tac "$LOG_FILE" 2>/dev/null) 2>/dev/null)
-                                    if [[ -z "$LOGIN_DATA" ]]; then send_msg "🟢 <b>ONLINE USERS (LIVE)</b>\n━━━━━━━━━━━━━━━━━━━━\n<i>Saat ini tidak ada user yang aktif.</i>\n━━━━━━━━━━━━━━━━━━━━"; else
-                                        LOG_MSG=$(format_online_users "$LOGIN_DATA")
-                                        send_msg "$LOG_MSG"
+                        if [[ "$DATA" == "main_menu" ]]; then
+                            show_main_menu "$SENDER_ID" "$MSG_ID"
+                        elif [[ "$DATA" == menu_* ]]; then
+                            proto=${DATA#menu_}
+                            show_proto_menu "$SENDER_ID" "$MSG_ID" "${proto^^}"
+                        elif [[ "$DATA" == act_* ]]; then
+                            action=$(echo "$DATA" | cut -d'_' -f2)
+                            proto=$(echo "$DATA" | cut -d'_' -f3)
+                            
+                            # Clear state
+                            rm -f "/etc/wibutunnel/tmp/bot_state_${SENDER_ID}"
+                            
+                            case "$action" in
+                                list) list_account "$proto" ;;
+                                login) check_login "$proto" ;;
+                                trafik) 
+                                    if [[ -s "/etc/wibutunnel/user_usage.db" ]]; then
+                                        TRF_MSG="📊 <b>TOP 10 PEMAKAIAN QUOTA</b>\n━━━━━━━━━━━━━━━━━━━━\n"
+                                        idx=1
+                                        while IFS=":" read -r bytes usr; do
+                                            if [[ "$bytes" -ge 1073741824 ]]; then gb=$(awk -v b="$bytes" 'BEGIN { printf "%.2f", b / 1073741824 }'); vol="${gb} GB"
+                                            elif [[ "$bytes" -ge 1048576 ]]; then mb=$(awk -v b="$bytes" 'BEGIN { printf "%.2f", b / 1048576 }'); vol="${mb} MB"
+                                            elif [[ "$bytes" -ge 1024 ]]; then kb=$(awk -v b="$bytes" 'BEGIN { printf "%.2f", b / 1024 }'); vol="${kb} KB"
+                                            else vol="${bytes} Bytes"; fi
+                                            if grep -q "^${usr}:" /etc/xray/vless_exp.conf 2>/dev/null; then proto_r="VLESS"; elif grep -q "^${usr}:" /etc/xray/vmess_exp.conf 2>/dev/null; then proto_r="VMESS"; elif grep -q "^${usr}:" /etc/xray/trojan_exp.conf 2>/dev/null; then proto_r="TROJAN"; else continue; fi
+                                            TRF_MSG+="<b>${idx}.</b> <code>${usr}</code> [${proto_r}] : ${vol}\n"
+                                            ((idx++))
+                                            [[ $idx -gt 10 ]] && break
+                                        done < <(awk -F':' '{ if ($1 ~ /^(vless|vmess|trojan)-(ws|grpc)-(tls|ntls)$/ || $1 ~ /^(vless|vmess|trojan)-grpc$/ || $1 == "api" || $1 == "direct" || $1 == "blocked") next; down=($2=="null"||$2=="")?0:$2; up=($3=="null"||$3=="")?0:$3; print (down+up)":"$1 }' /etc/wibutunnel/user_usage.db 2>/dev/null | sort -t: -k1 -nr)
+                                        TRF_MSG+="━━━━━━━━━━━━━━━━━━━━"
+                                        local kb='{"inline_keyboard":[[{"text":"🔙 Back to SYSTEM Menu","callback_data":"menu_system"}]]}'
+                                        send_msg "$TRF_MSG" "$kb"
+                                    else
+                                        send_msg "📊 <b>Belum ada data trafik pemakaian.</b>" '{"inline_keyboard":[[{"text":"🔙 Back to SYSTEM Menu","callback_data":"menu_system"}]]}'
                                     fi
-                                fi
+                                    ;;
+                                info)
+                                    IP=$(curl -sS --max-time 3 ipv4.icanhazip.com 2>/dev/null)
+                                    UPTIME=$(uptime -p | cut -d' ' -f2-)
+                                    RAM=$(free -m | awk '/Mem:/ {print $3" MB / "$2" MB"}')
+                                    CPU=$(top -bn1 | grep "Cpu(s)" | sed "s/.*, *\([0-9.]*\)%* id.*/\1/" | awk '{print 100 - $1}')
+                                    DISK=$(df -h / | awk 'NR==2 {print $3" / "$2" ("$5")"}')
+                                    OS=$(cat /etc/os-release | grep -w PRETTY_NAME | cut -d= -f2 | tr -d '"')
+                                    INFO_MSG="💻 <b>INFORMASI VPS SERVER</b>\n━━━━━━━━━━━━━━━━━━━━\n<b>🖥 OS     :</b> <code>${OS}</code>\n<b>🌐 IP     :</b> <code>${IP}</code>\n<b>⏱ Uptime :</b> <code>${UPTIME}</code>\n<b>🧠 RAM    :</b> <code>${RAM}</code>\n<b>⚡️ CPU    :</b> <code>${CPU}%</code>\n<b>💾 Disk   :</b> <code>${DISK}</code>\n━━━━━━━━━━━━━━━━━━━━"
+                                    local kb='{"inline_keyboard":[[{"text":"🔙 Back to SYSTEM Menu","callback_data":"menu_system"}]]}'
+                                    send_msg "$INFO_MSG" "$kb"
+                                    ;;
+                                backup)
+                                    backup_vps
+                                    ;;
+                                *)
+                                    echo "$action $proto" > "/etc/wibutunnel/tmp/bot_state_${SENDER_ID}"
+                                    ask_input "$SENDER_ID" "$action" "$proto"
+                                    ;;
+                            esac
+                        fi
+                    fi
+                else
+                    # Check for Text Message
+                    SENDER_ID=$(echo "$UPDATES" | jq -r ".result[$i].message.chat.id // empty")
+                    if [[ -n "$SENDER_ID" ]]; then
+                        TEXT=$(echo "$UPDATES" | jq -r ".result[$i].message.text // empty")
+                        TEXT="${TEXT//$'\r'/}"
+                        
+                        if is_admin "$SENDER_ID"; then
+                            if [[ -f "/etc/wibutunnel/tmp/bot_state_${SENDER_ID}" && ! "$TEXT" =~ ^/ ]]; then
+                                read -r action proto < "/etc/wibutunnel/tmp/bot_state_${SENDER_ID}"
+                                rm -f "/etc/wibutunnel/tmp/bot_state_${SENDER_ID}"
+                                
+                                case "$action" in
+                                    create)
+                                        read -r user hari ip gb <<< "$TEXT"
+                                        if [[ -z "$gb" ]]; then
+                                            send_msg "❌ Format salah! Harap masukkan:\n<code>nama hari limit_ip limit_gb</code>" '{"inline_keyboard":[[{"text":"🔙 Back to '"${proto}"' Menu","callback_data":"menu_'"${proto,,}"'"}]]}'
+                                        else
+                                            create_account "$proto" "$user" "$hari" "$ip" "$gb"
+                                        fi
+                                        ;;
+                                    trial)
+                                        waktu="$TEXT"
+                                        create_account "$proto" "trial-$(tr -dc 'a-z0-9' </dev/urandom | head -c 4)" "$waktu" "0" "1"
+                                        ;;
+                                    del)
+                                        delete_account "$TEXT" "$proto"
+                                        ;;
+                                    renew)
+                                        read -r user hari <<< "$TEXT"
+                                        if [[ -z "$hari" ]]; then
+                                            send_msg "❌ Format salah! Harap masukkan:\n<code>nama hari</code>" '{"inline_keyboard":[[{"text":"🔙 Back to '"${proto}"' Menu","callback_data":"menu_'"${proto,,}"'"}]]}'
+                                        else
+                                            renew_account "$user" "$hari" "$proto"
+                                        fi
+                                        ;;
+                                    limit)
+                                        read -r user ip gb <<< "$TEXT"
+                                        if [[ -z "$gb" ]]; then
+                                            send_msg "❌ Format salah! Harap masukkan:\n<code>nama limit_ip limit_gb</code>" '{"inline_keyboard":[[{"text":"🔙 Back to '"${proto}"' Menu","callback_data":"menu_'"${proto,,}"'"}]]}'
+                                        else
+                                            change_limit "$user" "$ip" "$gb" "$proto"
+                                        fi
+                                        ;;
+                                    detail)
+                                        detail_account "$TEXT" "$proto"
+                                        ;;
+                                esac
+                            else
+                                rm -f "/etc/wibutunnel/tmp/bot_state_${SENDER_ID}"
+                                case "$TEXT" in
+                                    /start|/menu)
+                                        show_main_menu "$SENDER_ID" ""
+                                        ;;
+                                esac
                             fi
                         fi
                     fi
                 fi
-
-                echo "$((UPDATE_ID + 1))" > $OFFSET_FILE
+                
+                NEXT_OFFSET=$((UPDATE_ID + 1))
+                echo "$NEXT_OFFSET" > $OFFSET_FILE
             done
         fi
-    else
-        # If curl failed (e.g. network error), sleep to prevent rapid looping
-        sleep 1
     fi
 done
