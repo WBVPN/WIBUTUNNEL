@@ -1,9 +1,10 @@
 #!/bin/bash
 # ==========================================
 # WIBU TUNNELING - lock-user (Improved v2)
-# Supports reason + Telegram Notification
+# [PATCH] flock via safe_jq_edit_args, safe_sed_delete
 # ==========================================
 
+source /usr/local/bin/common.sh 2>/dev/null || { echo "[ERROR] common.sh not found" >&2; exit 1; }
 source /etc/wibutunnel/bot.conf 2>/dev/null
 
 user=$1
@@ -12,8 +13,7 @@ reason=$3   # IP_LIMIT atau QUOTA
 
 [[ -z "$user" ]] && exit 1
 
-# Lock di Xray config
-jq --arg u "$user" '(.routing.rules[] | select(.user != null and .outboundTag == "blocked") | .user) |= (. + [$u] | unique)' /usr/local/etc/xray/config.json > /tmp/xray.json && mv /tmp/xray.json /usr/local/etc/xray/config.json
+safe_jq_edit_args --arg u "$user" '(.routing.rules[] | select(.user != null and .outboundTag == "blocked") | .user) |= (. + [$u] | unique)'
 
 now=$(date +%s)
 if [[ -n "$duration" && "$duration" != "0" ]]; then
@@ -22,8 +22,7 @@ else
     unlock_time=0
 fi
 
-# Update database lock
-sed -i "/^$user:/d" /etc/wibutunnel/locked_users.db 2>/dev/null
+safe_sed_delete "$user" /etc/wibutunnel/locked_users.db
 echo "$user:$now:$unlock_time:$reason" >> /etc/wibutunnel/locked_users.db
 
 systemctl restart xray >/dev/null 2>&1

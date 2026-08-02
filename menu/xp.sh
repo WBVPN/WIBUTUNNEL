@@ -65,10 +65,10 @@ process_expired() {
                 if [[ "$user" == *"trial"* ]]; then
                     TRIAL_TO_DELETE+=("$user")
                     # Do not append to NEW_EXP_CONTENT (removes from EXP_FILE)
-                    sed -i "/^${user}:/d" /etc/wibutunnel/limit_ip.db 2>/dev/null
-                    sed -i "/^${user}:/d" /etc/wibutunnel/limit_bw.db 2>/dev/null
-                    sed -i "/^${user}:/d" /etc/wibutunnel/locked_users.db 2>/dev/null
-                    sed -i "/^${user}:/d" /etc/wibutunnel/user_usage.db 2>/dev/null
+                    safe_sed_delete "$user" /etc/wibutunnel/limit_ip.db
+                    safe_sed_delete "$user" /etc/wibutunnel/limit_bw.db
+                    safe_sed_delete "$user" /etc/wibutunnel/locked_users.db
+                    safe_sed_delete "$user" /etc/wibutunnel/user_usage.db
                     
                     FOOTER="Deleted Permanently"
                 else
@@ -76,7 +76,7 @@ process_expired() {
                     NEW_EXP_CONTENT+="${line}\n"
                     
                     now=$(date +%s)
-                    sed -i "/^$user:/d" /etc/wibutunnel/locked_users.db 2>/dev/null
+                    safe_sed_delete "$user" /etc/wibutunnel/locked_users.db
                     echo "$user:$now:0:EXPIRED" >> /etc/wibutunnel/locked_users.db
                     
                     FOOTER="Move to Recovery"
@@ -136,7 +136,7 @@ if [[ ${#TRIAL_TO_DELETE[@]} -gt 0 || ${#NORMAL_TO_RECOVERY[@]} -gt 0 ]]; then
         JQ_FILTER+=" | (.routing.rules[] | select(.user != null and .outboundTag == \"blocked\") | .user) |= (. + ${USERS_JSON} | unique)"
     fi
     
-    jq "$JQ_FILTER" "$CONFIG_FILE" > /etc/wibutunnel/tmp/xray_tmp.json && mv /etc/wibutunnel/tmp/xray_tmp.json "$CONFIG_FILE"
+    safe_jq_edit "$JQ_FILTER"
     
     systemctl restart xray >/dev/null 2>&1
 fi

@@ -28,11 +28,12 @@ user_json_exists() {
 select_user() {
     local ACTION_TITLE=$1
     local DISPLAY_TYPE=$2
+    local SHOW_LOCKED=$3
     mapfile -t raw_user_array < <(jq -r '.inbounds[4].settings.clients[].email' "$CONFIG_FILE" | grep -v "dummy" | sort)
 
     declare -a user_array
     for u in "${raw_user_array[@]}"; do
-        if grep -q "^${u}:" "$DB_LOCK" 2>/dev/null; then continue; fi
+        if [[ "$SHOW_LOCKED" != "YES" ]] && grep -q "^${u}:" "$DB_LOCK" 2>/dev/null; then continue; fi
         user_array+=("$u")
     done
 
@@ -87,14 +88,14 @@ add_user() {
 
     uuid=$(uuidgen); domain=$(cat "$DOMAIN_FILE")
 
-    jq --arg uuid "$uuid" --arg user "$user" '
+    safe_jq_edit_args --arg uuid "$uuid" --arg user "$user" '
         .inbounds[4].settings.clients += [{"id": $uuid, "alterId": 0, "email": $user}] |
         .inbounds[5].settings.clients += [{"id": $uuid, "alterId": 0, "email": $user}] |
         .inbounds[6].settings.clients += [{"id": $uuid, "alterId": 0, "email": $user}]
-    ' "$CONFIG_FILE" > /etc/wibutunnel/tmp/xray_tmp.json && mv /etc/wibutunnel/tmp/xray_tmp.json "$CONFIG_FILE"
+    '
 
     echo "${user}:${exp_date}" >> "$EXP_FILE"
-    sed -i "/^${user}:/d" "$DB_IP" 2>/dev/null; sed -i "/^${user}:/d" "$DB_BW" 2>/dev/null
+    safe_sed_delete "$user" "$DB_IP"; safe_sed_delete "$user" "$DB_BW"
     echo "${user}:${limit_ip}" >> "$DB_IP"; echo "${user}:${limit_kuota}" >> "$DB_BW"
     systemctl restart xray >/dev/null 2>&1
 
@@ -181,14 +182,14 @@ trial_user() {
 
     uuid=$(uuidgen); domain=$(cat "$DOMAIN_FILE")
 
-    jq --arg uuid "$uuid" --arg user "$user" '
+    safe_jq_edit_args --arg uuid "$uuid" --arg user "$user" '
         .inbounds[4].settings.clients += [{"id": $uuid, "alterId": 0, "email": $user}] |
         .inbounds[5].settings.clients += [{"id": $uuid, "alterId": 0, "email": $user}] |
         .inbounds[6].settings.clients += [{"id": $uuid, "alterId": 0, "email": $user}]
-    ' "$CONFIG_FILE" > /etc/wibutunnel/tmp/xray_tmp.json && mv /etc/wibutunnel/tmp/xray_tmp.json "$CONFIG_FILE"
+    '
 
     echo "${user}:${exp_date}" >> "$EXP_FILE"
-    sed -i "/^${user}:/d" "$DB_IP" 2>/dev/null; sed -i "/^${user}:/d" "$DB_BW" 2>/dev/null
+    safe_sed_delete "$user" "$DB_IP"; safe_sed_delete "$user" "$DB_BW"
     echo "${user}:0" >> "$DB_IP"; echo "${user}:0" >> "$DB_BW"
     systemctl restart xray >/dev/null 2>&1
 
@@ -270,16 +271,16 @@ delete_user() {
     else
         echo -e "\n${GREEN}Akun '$user' berhasil dimusnahkan permanen!${NC}"
     fi
-    jq --arg user "$user" '
+    safe_jq_edit_args --arg user "$user" '
         .inbounds[4].settings.clients |= map(select(.email != $user)) |
         .inbounds[5].settings.clients |= map(select(.email != $user)) |
         .inbounds[6].settings.clients |= map(select(.email != $user)) |
         (.routing.rules[] | select(.user != null and .outboundTag == "blocked") | .user) |= map(select(. != $user))
-    ' "$CONFIG_FILE" > /etc/wibutunnel/tmp/xray_tmp.json && mv /etc/wibutunnel/tmp/xray_tmp.json "$CONFIG_FILE"
+    '
 
-    sed -i "/^${user}:/d" "$EXP_FILE"
-    sed -i "/^${user}:/d" "$DB_IP" 2>/dev/null; sed -i "/^${user}:/d" "$DB_BW" 2>/dev/null
-    sed -i "/^${user}:/d" "$DB_LOCK" 2>/dev/null; sed -i "/^${user}:/d" /etc/wibutunnel/user_usage.db 2>/dev/null
+    safe_sed_delete "$user" "$EXP_FILE"
+    safe_sed_delete "$user" "$DB_IP"; safe_sed_delete "$user" "$DB_BW"
+    safe_sed_delete "$user" "$DB_LOCK"; safe_sed_delete "$user" /etc/wibutunnel/user_usage.db
     systemctl restart xray >/dev/null 2>&1
     echo ""; read -p "Tekan Enter..." dummy
 }
@@ -379,7 +380,7 @@ renew_user() {
     else exp_sec=$(date -d "$current_exp" +%s 2>/dev/null); if [ -z "$exp_sec" ] || [ "$today_sec" -gt "$exp_sec" ]; then base_sec=$today_sec; else base_sec=$exp_sec; fi; fi
 
     new_exp=$(date -d "@$(( base_sec + (tambahan * 86400) ))" +"%Y-%m-%d %H:%M:%S")
-    sed -i "/^${user}:/d" "$EXP_FILE"; echo "${user}:${new_exp}" >> "$EXP_FILE"
+    safe_sed_delete "$user" "$EXP_FILE"; echo "${user}:${new_exp}" >> "$EXP_FILE"
     systemctl restart xray >/dev/null 2>&1
 
     echo -e "\n${GREEN}Berhasil! Expired baru: $new_exp${NC}"
@@ -406,7 +407,7 @@ change_ip_user() {
     read -p " Masukkan Limit IP Baru (0 = Bebas): " new_limit
     [[ ! "$new_limit" =~ ^[0-9]+$ ]] && new_limit=0
 
-    sed -i "/^${user}:/d" "$DB_IP" 2>/dev/null; echo "${user}:${new_limit}" >> "$DB_IP"
+    safe_sed_delete "$user" "$DB_IP"; echo "${user}:${new_limit}" >> "$DB_IP"
     echo -e "\n${GREEN}Sukses! Limit IP user '${user}' diubah menjadi: ${new_limit}${NC}"
     if [[ -n "$BOT_TOKEN" && -n "$CHAT_ID" ]]; then
         PESAN_IP="${THICKLINE}
@@ -430,7 +431,7 @@ change_bw_user() {
     read -p " Masukkan Limit Kuota Baru GB (0 = Unli): " new_limit
     [[ ! "$new_limit" =~ ^[0-9]+$ ]] && new_limit=0
 
-    sed -i "/^${user}:/d" "$DB_BW" 2>/dev/null; echo "${user}:${new_limit}" >> "$DB_BW"
+    safe_sed_delete "$user" "$DB_BW"; echo "${user}:${new_limit}" >> "$DB_BW"
     /usr/local/sbin/algojo-kuota >/dev/null 2>&1
     echo -e "\n${GREEN}Sukses! Limit Kuota user '${user}' diubah menjadi: ${new_limit} GB${NC}"
     if [[ -n "$BOT_TOKEN" && -n "$CHAT_ID" ]]; then
@@ -450,7 +451,7 @@ recovery_vmess() {
 }
 
 lock_unlock_user() {
-    select_user "LOCK / UNLOCK AKUN VMESS" "EXP"
+    select_user "LOCK / UNLOCK AKUN VMESS" "EXP" "YES"
     [[ -z "$SELECTED_USER" ]] && return
     user="$SELECTED_USER"
 
@@ -458,12 +459,12 @@ lock_unlock_user() {
     now=$(date +%s)
 
     if grep -q "^${user}:" "$DB_LOCK" 2>/dev/null; then
-        jq --arg u "$user" '(.routing.rules[] | select(.user != null and .outboundTag == "blocked") | .user) |= map(select(. != $u))' /usr/local/etc/xray/config.json > /etc/wibutunnel/tmp/xray_tmp.json && mv /etc/wibutunnel/tmp/xray_tmp.json /usr/local/etc/xray/config.json
-        sed -i "/^${user}:/d" "$DB_LOCK" 2>/dev/null
+        safe_jq_edit_args --arg u "$user" '(.routing.rules[] | select(.user != null and .outboundTag == "blocked") | .user) |= map(select(. != $u))' 
+        safe_sed_delete "$user" "$DB_LOCK"
         systemctl restart xray >/dev/null 2>&1
         echo -e "\n${GREEN}Akun '$user' berhasil di-UNLOCK! Kini bisa login kembali.${NC}"
     else
-        jq --arg user "$user" '(.routing.rules[] | select(.user != null and .outboundTag == "blocked") | .user) |= (. + [$user] | unique)' /usr/local/etc/xray/config.json > /etc/wibutunnel/tmp/xray_tmp.json && mv /etc/wibutunnel/tmp/xray_tmp.json /usr/local/etc/xray/config.json
+        safe_jq_edit_args --arg user "$user" '(.routing.rules[] | select(.user != null and .outboundTag == "blocked") | .user) |= (. + [$user] | unique)' 
         echo "$user:$now:0:LOCK" >> "$DB_LOCK"
         systemctl restart xray >/dev/null 2>&1
         echo -e "\n${RED}Akun '$user' berhasil di-LOCK! Dipindahkan ke Recovery.${NC}"

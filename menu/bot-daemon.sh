@@ -3,6 +3,7 @@
 # Seringan kapas, secepat kilat.
 
 BOT_CONF="/etc/wibutunnel/bot.conf"
+source /usr/local/bin/common.sh 2>/dev/null
 OFFSET_FILE="/etc/wibutunnel/tmp/bot_offset"
 CONFIG_FILE="/usr/local/etc/xray/config.json"
 
@@ -156,30 +157,30 @@ create_account() {
     local link3=""
     
     if [[ "$proto" == "VLESS" ]]; then
-        jq --arg uuid "$uuid" --arg user "$user" '
+        safe_jq_edit_args --arg uuid "$uuid" --arg user "$user" '
             .inbounds[1].settings.clients += [{"id": $uuid, "email": $user}] |
             .inbounds[2].settings.clients += [{"id": $uuid, "email": $user}] |
             .inbounds[3].settings.clients += [{"id": $uuid, "email": $user}]
-        ' "$CONFIG_FILE" > /etc/wibutunnel/tmp/xtmp.json && mv /etc/wibutunnel/tmp/xtmp.json "$CONFIG_FILE"
+        '
         echo "${user}:${exp_date}" >> /etc/xray/vless_exp.conf
         link1="vless://${uuid}@${domain}:443?path=/vless&security=tls&encryption=none&host=${domain}&type=ws&sni=${domain}#${user}"
         link2="vless://${uuid}@${domain}:80?path=/vless-ntls&security=none&encryption=none&host=${domain}&type=ws#${user}"
         link3="vless://${uuid}@${domain}:443?mode=gun&security=tls&encryption=none&type=grpc&serviceName=vless&sni=${domain}#${user}"
     elif [[ "$proto" == "VMESS" ]]; then
-        jq --arg uuid "$uuid" --arg user "$user" '
+        safe_jq_edit_args --arg uuid "$uuid" --arg user "$user" '
             .inbounds[4].settings.clients += [{"id": $uuid, "alterId": 0, "email": $user}] |
             .inbounds[5].settings.clients += [{"id": $uuid, "alterId": 0, "email": $user}] |
             .inbounds[6].settings.clients += [{"id": $uuid, "alterId": 0, "email": $user}]
-        ' "$CONFIG_FILE" > /etc/wibutunnel/tmp/xtmp.json && mv /etc/wibutunnel/tmp/xtmp.json "$CONFIG_FILE"
+        '
         echo "${user}:${exp_date}" >> /etc/xray/vmess_exp.conf
         link1="vmess://$(echo -n "{\"v\":\"2\",\"ps\":\"$user\",\"add\":\"$domain\",\"port\":\"443\",\"id\":\"$uuid\",\"aid\":\"0\",\"net\":\"ws\",\"path\":\"/vmess\",\"type\":\"none\",\"host\":\"$domain\",\"tls\":\"tls\",\"sni\":\"$domain\"}" | base64 -w 0)"
         link2="vmess://$(echo -n "{\"v\":\"2\",\"ps\":\"$user\",\"add\":\"$domain\",\"port\":\"80\",\"id\":\"$uuid\",\"aid\":\"0\",\"net\":\"ws\",\"path\":\"/vmess-ntls\",\"type\":\"none\",\"host\":\"$domain\",\"tls\":\"\",\"sni\":\"\"}" | base64 -w 0)"
         link3="vmess://$(echo -n "{\"v\":\"2\",\"ps\":\"$user\",\"add\":\"$domain\",\"port\":\"443\",\"id\":\"$uuid\",\"aid\":\"0\",\"net\":\"grpc\",\"path\":\"vmess\",\"type\":\"none\",\"host\":\"$domain\",\"tls\":\"tls\",\"sni\":\"$domain\"}" | base64 -w 0)"
     elif [[ "$proto" == "TROJAN" ]]; then
-        jq --arg uuid "$uuid" --arg user "$user" '
+        safe_jq_edit_args --arg uuid "$uuid" --arg user "$user" '
             .inbounds[7].settings.clients += [{"password": $uuid, "email": $user}] |
             .inbounds[8].settings.clients += [{"password": $uuid, "email": $user}]
-        ' "$CONFIG_FILE" > /etc/wibutunnel/tmp/xtmp.json && mv /etc/wibutunnel/tmp/xtmp.json "$CONFIG_FILE"
+        '
         echo "${user}:${exp_date}" >> /etc/xray/trojan_exp.conf
         link1="trojan://${uuid}@${domain}:443?path=/trojan&security=tls&host=${domain}&type=ws&sni=${domain}#${user}"
         link2="trojan://${uuid}@${domain}:443?mode=gun&security=tls&type=grpc&serviceName=trojan&sni=${domain}#${user}"
@@ -256,7 +257,7 @@ delete_account() {
         return
     fi
     
-    jq --arg u "$user" '
+    safe_jq_edit_args --arg u "$user" '
         .inbounds[1].settings.clients |= map(select(.email != $u)) |
         .inbounds[2].settings.clients |= map(select(.email != $u)) |
         .inbounds[3].settings.clients |= map(select(.email != $u)) |
@@ -266,15 +267,15 @@ delete_account() {
         .inbounds[7].settings.clients |= map(select(.email != $u)) |
         .inbounds[8].settings.clients |= map(select(.email != $u)) |
         (.routing.rules[] | select(.user != null and .outboundTag == "blocked") | .user) |= map(select(. != $u))
-    ' "$CONFIG_FILE" > /etc/wibutunnel/tmp/xtmp.json && mv /etc/wibutunnel/tmp/xtmp.json "$CONFIG_FILE"
+    '
 
-    sed -i "/^${user}:/d" /etc/xray/vless_exp.conf
-    sed -i "/^${user}:/d" /etc/xray/vmess_exp.conf
-    sed -i "/^${user}:/d" /etc/xray/trojan_exp.conf
-    sed -i "/^${user}:/d" /etc/wibutunnel/limit_ip.db 2>/dev/null
-    sed -i "/^${user}:/d" /etc/wibutunnel/limit_bw.db 2>/dev/null
-    sed -i "/^${user}:/d" /etc/wibutunnel/locked_users.db 2>/dev/null
-    sed -i "/^${user}:/d" /etc/wibutunnel/user_usage.db 2>/dev/null
+    safe_sed_delete "$user" /etc/xray/vless_exp.conf
+    safe_sed_delete "$user" /etc/xray/vmess_exp.conf
+    safe_sed_delete "$user" /etc/xray/trojan_exp.conf
+    safe_sed_delete "$user" /etc/wibutunnel/limit_ip.db
+    safe_sed_delete "$user" /etc/wibutunnel/limit_bw.db
+    safe_sed_delete "$user" /etc/wibutunnel/locked_users.db
+    safe_sed_delete "$user" /etc/wibutunnel/user_usage.db
 
     systemctl restart xray >/dev/null 2>&1
     
@@ -345,7 +346,8 @@ renew_account() {
         return
     fi
     
-    sed -i "s/^${user}:.*/${user}:${exp_date}/" "$exp_file"
+    safe_sed_delete "$user" "$exp_file"
+    echo "${user}:${exp_date}" >> "$exp_file"
     
     local kb=""
     [[ -n "$proto" ]] && kb='{"inline_keyboard":[[{"text":"🔙 Back to '"${proto}"' Menu","callback_data":"menu_'"${proto,,}"'"}]]}'
@@ -370,18 +372,12 @@ change_limit() {
     fi
     
     # Update IP
-    if grep -q "^${user}:" /etc/wibutunnel/limit_ip.db; then
-        sed -i "s/^${user}:.*/${user}:${limit_ip}/" /etc/wibutunnel/limit_ip.db
-    else
-        echo "${user}:${limit_ip}" >> /etc/wibutunnel/limit_ip.db
-    fi
+    safe_sed_delete "$user" /etc/wibutunnel/limit_ip.db
+    echo "${user}:${limit_ip}" >> /etc/wibutunnel/limit_ip.db
     
     # Update BW
-    if grep -q "^${user}:" /etc/wibutunnel/limit_bw.db; then
-        sed -i "s/^${user}:.*/${user}:${limit_bw}/" /etc/wibutunnel/limit_bw.db
-    else
-        echo "${user}:${limit_bw}" >> /etc/wibutunnel/limit_bw.db
-    fi
+    safe_sed_delete "$user" /etc/wibutunnel/limit_bw.db
+    echo "${user}:${limit_bw}" >> /etc/wibutunnel/limit_bw.db
     
     local ip_str="Bebas"; [[ "$limit_ip" -ne 0 ]] && ip_str="${limit_ip} IP"
     local bw_str="Unlimited"; [[ "$limit_bw" -ne 0 ]] && bw_str="${limit_bw} GB"

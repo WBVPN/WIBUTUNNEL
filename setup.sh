@@ -459,6 +459,28 @@ download_menu "common.sh" "common.sh"
 download_menu "menu/bot-daemon.sh" "bot-daemon"
 download_menu "menu/bot-webhook.sh" "bot-webhook"
 
+# Download sbin scripts (source of truth — patched versions)
+download_menu "sbin/algojo-wibu" "algojo-wibu-dl"
+download_menu "sbin/algojo-kuota" "algojo-kuota-dl"
+download_menu "sbin/lock-user" "lock-user-dl"
+download_menu "sbin/unlock-user" "unlock-user-dl"
+download_menu "sbin/unlocker-wibu" "unlocker-wibu-dl"
+
+# Install sbin scripts
+for s in algojo-wibu algojo-kuota lock-user unlock-user unlocker-wibu; do
+    if [ -f "/usr/local/bin/${s}-dl" ]; then
+        mv "/usr/local/bin/${s}-dl" "/usr/local/sbin/${s}"
+        chmod +x "/usr/local/sbin/${s}"
+    fi
+done
+# lock-user and unlock-user go to /usr/local/bin/
+for s in lock-user unlock-user; do
+    if [ -f "/usr/local/sbin/${s}" ]; then
+        mv "/usr/local/sbin/${s}" "/usr/local/bin/${s}"
+        chmod +x "/usr/local/bin/${s}"
+    fi
+done
+
 # =========================================================
 # SISTEM RECOVERY CENTER & ALGOJO MONITOR (v4.0 PERFECT)
 # =========================================================
@@ -885,7 +907,14 @@ systemctl restart xray haproxy
 # Set Webhook URL to Telegram
 source /etc/wibutunnel/bot.conf 2>/dev/null
 if [[ -n "$BOT_TOKEN" ]]; then
-    curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/setWebhook" -F "url=https://${domain}/telehook" >/dev/null 2>&1
+    # Generate webhook secret jika belum ada
+    if [[ -z "$WEBHOOK_SECRET" ]]; then
+        WEBHOOK_SECRET=$(head -c 32 /dev/urandom | base64 | tr -dc 'a-zA-Z0-9' | head -c 32)
+        echo "WEBHOOK_SECRET="${WEBHOOK_SECRET}"" >> /etc/wibutunnel/bot.conf
+    fi
+    curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/setWebhook" \
+        -F "url=https://${domain}/telehook" \
+        -F "secret_token=${WEBHOOK_SECRET}" >/dev/null 2>&1
 fi
 
 dos2unix /usr/local/bin/* /usr/local/sbin/* >/dev/null 2>&1
