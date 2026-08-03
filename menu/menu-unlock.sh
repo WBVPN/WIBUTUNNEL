@@ -107,9 +107,9 @@ for line in "${locked_list[@]}"; do
     fi
     
     if [[ -z "$proto" ]]; then
-        safe_sed_delete "" "$DB_LOCK"
-        safe_sed_delete "" /etc/wibutunnel/user_usage.db
-        jq --arg user "$u" '(.routing.rules[] | select(.user != null and .outboundTag == "blocked") | .user) |= map(select(. != $user))' /usr/local/etc/xray/config.json > /etc/wibutunnel/tmp/xray.json && mv /etc/wibutunnel/tmp/xray.json /usr/local/etc/xray/config.json
+        safe_sed_delete "$u" "$DB_LOCK"
+        safe_sed_delete "$u" /etc/wibutunnel/user_usage.db
+        safe_jq_edit_args --arg user \"$u\" '(.routing.rules[] | select(.user != null and .outboundTag == "blocked") | .user) |= map(select(. != $user))'
         GHOST_FOUND=true
         continue
     fi
@@ -185,27 +185,27 @@ read -p " Masukkan Limit Kuota GB (0=Unli): " bw_baru
 new_exp=$(date -d "+${hari_baru} days" +"%Y-%m-%d %H:%M:%S")
 proto="${USER_PROTOS[$user]}"
 if [[ "$proto" == "VLESS" ]]; then
-    safe_sed_delete "" /etc/xray/vless_exp.conf
+    safe_sed_delete "$user" /etc/xray/vless_exp.conf
     echo "${user}:${new_exp}" >> /etc/xray/vless_exp.conf
 fi
 if [[ "$proto" == "VMESS" ]]; then
-    safe_sed_delete "" /etc/xray/vmess_exp.conf
+    safe_sed_delete "$user" /etc/xray/vmess_exp.conf
     echo "${user}:${new_exp}" >> /etc/xray/vmess_exp.conf
 fi
 if [[ "$proto" == "TROJAN" ]]; then
-    safe_sed_delete "" /etc/xray/trojan_exp.conf
+    safe_sed_delete "$user" /etc/xray/trojan_exp.conf
     echo "${user}:${new_exp}" >> /etc/xray/trojan_exp.conf
 fi
 
-safe_sed_delete "" /etc/wibutunnel/limit_ip.db
+safe_sed_delete "$user" /etc/wibutunnel/limit_ip.db
 echo "${user}:${ip_baru}" >> /etc/wibutunnel/limit_ip.db
-safe_sed_delete "" /etc/wibutunnel/limit_bw.db
+safe_sed_delete "$user" /etc/wibutunnel/limit_bw.db
 echo "${user}:${bw_baru}" >> /etc/wibutunnel/limit_bw.db
-safe_sed_delete "" /etc/wibutunnel/user_usage.db
+safe_sed_delete "$user" /etc/wibutunnel/user_usage.db
 
 # UNLOCK DARI XRAY
-jq --arg u "$user" '(.routing.rules[] | select(.user != null and .outboundTag == "blocked") | .user) |= map(select(. != $u))' /usr/local/etc/xray/config.json > /etc/wibutunnel/tmp/xray.json && mv /etc/wibutunnel/tmp/xray.json /usr/local/etc/xray/config.json
-safe_sed_delete "" /etc/wibutunnel/locked_users.db
+safe_jq_edit_args --arg u \"$user\" '(.routing.rules[] | select(.user != null and .outboundTag == "blocked") | .user) |= map(select(. != $u))'
+safe_sed_delete "$user" /etc/wibutunnel/locked_users.db
 systemctl restart xray >/dev/null 2>&1
 
 echo -e "\n ${GREEN}BERHASIL! Akun ${user} telah aktif kembali.${NC}"

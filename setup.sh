@@ -209,12 +209,12 @@ if ! grep -q "tmpfs /tmp" /etc/fstab; then
 fi
 
 if ! grep -q "tmpfs /var/log/xray" /etc/fstab; then
-    echo "tmpfs /var/log/xray tmpfs defaults,nosuid,nodev,noexec,mode=1777,size=30M,uid=65534,gid=65534 0 0" >> /etc/fstab
+    echo "tmpfs /var/log/xray tmpfs defaults,nosuid,nodev,noexec,mode=0755,size=30M 0 0" >> /etc/fstab
     mkdir -p /var/log/xray
     mount /var/log/xray 2>/dev/null || true
-    chown -R nobody:nogroup /var/log/xray
 fi
-
+chown -R nobody:nogroup /var/log/xray
+chmod 755 /var/log/xray
 
 # Anti-Torrent
 iptables -A FORWARD -m string --string "get_peers" --algo bm -j DROP
@@ -461,6 +461,15 @@ download_menu "common.sh" "common.sh"
 download_menu "menu/bot-daemon.sh" "bot-daemon"
 download_menu "menu/bot-webhook.sh" "bot-webhook"
 
+
+# =========================================================
+# SISTEM RECOVERY CENTER & ALGOJO MONITOR (v4.0 PERFECT)
+# =========================================================
+touch /etc/wibutunnel/locked_users.db /etc/wibutunnel/limit_ip.db /etc/wibutunnel/limit_bw.db /etc/wibutunnel/user_usage.db
+chmod 600 /etc/wibutunnel/*.db
+
+
+# Scripts lock-user, unlock-user, algojo, unlocker diunduh dari repo (versi patched)
 # Download sbin scripts (source of truth — patched versions)
 download_menu "sbin/algojo-wibu" "algojo-wibu-dl"
 download_menu "sbin/algojo-kuota" "algojo-kuota-dl"
@@ -482,12 +491,6 @@ for s in lock-user unlock-user; do
         chmod +x "/usr/local/bin/${s}"
     fi
 done
-
-# =========================================================
-# SISTEM RECOVERY CENTER & ALGOJO MONITOR (v4.0 PERFECT)
-# =========================================================
-touch /etc/wibutunnel/locked_users.db /etc/wibutunnel/limit_ip.db /etc/wibutunnel/limit_bw.db /etc/wibutunnel/user_usage.db
-chmod 600 /etc/wibutunnel/*.db
 
 
 # WIBU DAEMON
@@ -621,7 +624,7 @@ if [[ -n "$BOT_TOKEN" ]]; then
     # Generate webhook secret jika belum ada
     if [[ -z "$WEBHOOK_SECRET" ]]; then
         WEBHOOK_SECRET=$(head -c 32 /dev/urandom | base64 | tr -dc 'a-zA-Z0-9' | head -c 32)
-        echo "WEBHOOK_SECRET="${WEBHOOK_SECRET}"" >> /etc/wibutunnel/bot.conf
+        echo "WEBHOOK_SECRET='${WEBHOOK_SECRET}'" >> /etc/wibutunnel/bot.conf
     fi
     curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/setWebhook" \
         -F "url=https://${domain}/telehook" \

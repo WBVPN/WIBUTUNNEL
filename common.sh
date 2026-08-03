@@ -36,8 +36,8 @@ safe_jq_edit() {
     (
         flock -w 30 200 || { echo "[ERROR] flock timeout on xray config" >&2; rm -f "$tmp"; return 1; }
         if jq "$filter" "$src" > "$tmp" 2>/dev/null && [ -s "$tmp" ]; then
-            chmod 644 "$tmp"
             mv "$tmp" "$src"
+            chmod 644 "$src"
         else
             echo "[ERROR] jq edit gagal, config tidak diubah" >&2
             rm -f "$tmp"
@@ -53,8 +53,8 @@ safe_jq_edit_args() {
     (
         flock -w 30 200 || { echo "[ERROR] flock timeout on xray config" >&2; rm -f "$tmp"; return 1; }
         if jq "$@" "$src" > "$tmp" 2>/dev/null && [ -s "$tmp" ]; then
-            chmod 644 "$tmp"
             mv "$tmp" "$src"
+            chmod 644 "$src"
         else
             echo "[ERROR] jq edit gagal, config tidak diubah" >&2
             rm -f "$tmp"
