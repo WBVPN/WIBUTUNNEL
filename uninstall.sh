@@ -35,6 +35,7 @@ rm -f /etc/systemd/system/telegram-webhook.socket
 rm -f /etc/systemd/system/telegram-webhook@.service
 rm -rf /etc/systemd/system/haproxy.service.d
 rm -rf /etc/systemd/system/xray.service.d
+rm -f /etc/systemd/system/wibutunnel-bot.service /etc/systemd/system/xray.service /etc/systemd/system/xray@.service
 systemctl daemon-reload
 
 # Hapus logrotate
