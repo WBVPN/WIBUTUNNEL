@@ -13,6 +13,7 @@ systemctl stop telegram-webhook.socket 2>/dev/null
 systemctl disable telegram-webhook.socket 2>/dev/null
 
 # Hapus file konfigurasi dan database
+umount -f /var/log/xray 2>/dev/null
 rm -rf /usr/local/etc/xray /etc/haproxy /etc/wibutunnel /etc/xray /var/log/xray
 
 # Hapus file executable menu & daemon
@@ -41,6 +42,7 @@ rm -f /etc/logrotate.d/xray
 
 # Bersihkan .profile
 sed -i '/^clear$/d; /^menu$/d' /root/.profile 2>/dev/null
+sed -i '/\/var\/log\/xray/d' /etc/fstab 2>/dev/null
 
 # Uninstall paket bawaan (opsional)
 apt-get remove --purge -y haproxy vnstat jq >/dev/null 2>&1
